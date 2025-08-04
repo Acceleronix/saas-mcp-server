@@ -1,0 +1,27 @@
+name = "saas-mcp-server"
+main = "src/index.ts"
+compatibility_date = "2025-06-20"
+compatibility_flags = ["nodejs_compat"]
+
+# Environment variables
+[vars]
+BASE_URL = "https://euone-api.acceleronix.io"
+INDUSTRY_CODE = "eam"
+# Sensitive secrets must be configured via Cloudflare dashboard or CLI:
+# npx wrangler secret put APP_ID "Your APP ID"
+# npx wrangler secret put APP_SECRET "your_app_secret_here"
+
+# Durable Objects
+[[durable_objects.bindings]]
+name = "MCP_OBJECT"
+class_name = "VirtualDataMCP"
+
+# Observability
+[observability]
+enabled = true
+
+# Migrations
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["VirtualDataMCP"]
+
