@@ -71,11 +71,13 @@ The server requires these environment variables (set as Cloudflare Workers secre
 - `BASE_URL` - Base API URL for the Acceleronix IoT platform (https://iot-api.acceleronix.io)
 - `ACCESS_KEY` - Access key for Acceleronix IoT API authentication
 - `ACCESS_SECRET` - Access secret for Acceleronix IoT API authentication
+- `INTERNAL_API_PATH` - Internal API path for device data simulation (required, for security purposes)
 
 Set secrets using:
 ```bash
 npx wrangler secret put ACCESS_KEY
 npx wrangler secret put ACCESS_SECRET
+npx wrangler secret put INTERNAL_API_PATH
 ```
 
 ## Development Notes

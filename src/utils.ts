@@ -5,6 +5,7 @@ export interface EUOneEnvironment {
 	APP_ID: string;
 	APP_SECRET: string;
 	INDUSTRY_CODE: string;
+	INTERNAL_API_PATH?: string;
 }
 
 // Global token cache - enhanced with lock mechanism
@@ -1007,6 +1008,68 @@ export class EUOneAPIUtils {
 
 			if (result.code !== 200) {
 				console.error("❌ Device events API returned error code:", {
+					code: result.code,
+					msg: result.msg,
+					fullResponse: result
+				});
+				throw new Error(`API call failed: Code ${result.code} - ${result.msg || "Unknown error"}`);
+			}
+
+			return result;
+		});
+	}
+
+	static async writeDeviceData(
+		env: EUOneEnvironment,
+		options: {
+			deviceKey: string;
+			productKey: string;
+			upTsTime: string;
+			data: Record<string, any>;
+		},
+	): Promise<any> {
+		return EUOneAPIUtils.safeAPICallWithTokenRefresh(env, async (token) => {
+			console.log("🔐 Using token for write device data (length):", token.length);
+
+			// Build request body matching the Swagger specification
+			const requestBody = {
+				deviceKey: options.deviceKey,
+				productKey: options.productKey,
+				upTsTime: options.upTsTime,
+				data: options.data,
+			};
+
+			console.log("📝 Write device data request body:", JSON.stringify(requestBody, null, 2));
+
+			if (!env.INTERNAL_API_PATH) {
+			throw new Error("INTERNAL_API_PATH environment variable is required for device data simulation");
+		}
+		const url = `${env.BASE_URL}${env.INTERNAL_API_PATH}`;
+			console.log("📝 Write device data request URL:", url);
+
+			const response = await fetch(url, {
+				method: "POST",
+				headers: {
+					Authorization: token, // Direct token, no "Bearer " prefix
+					"Accept-Language": "en-US",
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify(requestBody),
+			});
+
+			console.log("📡 Write device data response status:", response.status);
+
+			if (!response.ok) {
+				const errorText = await response.text();
+				console.error("❌ Write device data HTTP error response:", errorText);
+				throw new Error(`API call failed: HTTP ${response.status} - ${errorText}`);
+			}
+
+			const result = (await response.json()) as any;
+			console.log("📤 Write device data API response:", JSON.stringify(result, null, 2));
+
+			if (result.code !== 200) {
+				console.error("❌ Write device data API returned error code:", {
 					code: result.code,
 					msg: result.msg,
 					fullResponse: result

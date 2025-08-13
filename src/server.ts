@@ -39,11 +39,12 @@ export class VirtualDataMCP extends McpAgent {
 		console.log("  - APP_ID:", env.APP_ID ? "✅ Set" : "❌ Missing");
 		console.log("  - APP_SECRET:", env.APP_SECRET ? "✅ Set" : "❌ Missing");  
 		console.log("  - INDUSTRY_CODE:", env.INDUSTRY_CODE ? "✅ Set" : "❌ Missing");
+		console.log("  - INTERNAL_API_PATH:", env.INTERNAL_API_PATH ? "✅ Set" : "❌ Missing");
 
 		// Validate environment variables - but don't throw error to allow tools registration
-		if (!env.BASE_URL || !env.APP_ID || !env.APP_SECRET || !env.INDUSTRY_CODE) {
+		if (!env.BASE_URL || !env.APP_ID || !env.APP_SECRET || !env.INDUSTRY_CODE || !env.INTERNAL_API_PATH) {
 			console.error(
-				"❌ Missing required Acceleronix SaaS API environment variables: BASE_URL, APP_ID, APP_SECRET, INDUSTRY_CODE",
+				"❌ Missing required environment variables: BASE_URL, APP_ID, APP_SECRET, INDUSTRY_CODE, INTERNAL_API_PATH",
 			);
 			console.log("⚠️ MCP server will start with limited functionality - tools will show authentication errors");
 		}
@@ -92,11 +93,15 @@ export class VirtualDataMCP extends McpAgent {
 		this.addDeviceEventsTool(env);
 		console.log("✅ Device events tool registered");
 
+		// Write device data tool
+		this.addWriteDeviceDataTool(env);
+		console.log("✅ Write device data tool registered");
+
 		console.log("📋 MCP tools registered successfully");
 
 		// Auto-login on server initialization with improved error handling
 		// This happens AFTER tools are registered and ensures token is ready for immediate use
-		if (env.BASE_URL && env.APP_ID && env.APP_SECRET && env.INDUSTRY_CODE) {
+		if (env.BASE_URL && env.APP_ID && env.APP_SECRET && env.INDUSTRY_CODE && env.INTERNAL_API_PATH) {
 			try {
 				console.log("🔐 Pre-warming authentication for better user experience...");
 				await EUOneAPIUtils.getAccessToken(env);
@@ -2023,6 +2028,135 @@ export class VirtualDataMCP extends McpAgent {
 							{
 								type: "text",
 								text: `❌ Error getting device events: ${errorMessage}`,
+							},
+						],
+					};
+				}
+			},
+		);
+	}
+
+	private addWriteDeviceDataTool(env: EUOneEnvironment) {
+		this.server.tool(
+			"write_device_data",
+			"Simulate uploading device data to IoT platform - useful for testing and demonstration purposes",
+			{
+				type: "object",
+				properties: {
+					deviceKey: {
+						type: "string",
+						description: "Device key (required, e.g., 'VDU1293621240625108')"
+					},
+					productKey: {
+						type: "string",
+						description: "Product key (required, e.g., 'pe17Ez')"
+					},
+					upTsTime: {
+						type: "string",
+						description: "Upload timestamp in milliseconds (required, e.g., '1753241244280')"
+					},
+					data: {
+						type: "object",
+						description: "Device data object with property values (required, e.g., {\"temperature\": 26.7, \"humidity\": 68})",
+						additionalProperties: true
+					}
+				},
+				required: ["deviceKey", "productKey", "upTsTime", "data"],
+				additionalProperties: false,
+			},
+			async (args) => {
+				console.log("🔥 write_device_data function ENTRY - parameters:", args);
+				
+				try {
+					console.log("🚀 write_device_data called with parameters:", args);
+
+					// Parameter validation
+					if (!args.deviceKey || typeof args.deviceKey !== "string" || args.deviceKey.trim() === "") {
+						throw new Error("deviceKey is required and must be a non-empty string");
+					}
+
+					if (!args.productKey || typeof args.productKey !== "string" || args.productKey.trim() === "") {
+						throw new Error("productKey is required and must be a non-empty string");
+					}
+
+					if (!args.upTsTime || typeof args.upTsTime !== "string" || args.upTsTime.trim() === "") {
+						throw new Error("upTsTime is required and must be a non-empty string");
+					}
+
+					if (!args.data || typeof args.data !== "object" || Array.isArray(args.data)) {
+						throw new Error("data is required and must be an object");
+					}
+
+					// Validate timestamp format (should be numeric string)
+					const timestamp = args.upTsTime.trim();
+					if (!/^\d+$/.test(timestamp)) {
+						throw new Error("upTsTime must be a numeric timestamp string (e.g., '1753241244280')");
+					}
+
+					console.log("✅ Using validated parameters:", { 
+						deviceKey: args.deviceKey.trim(),
+						productKey: args.productKey.trim(),
+						upTsTime: timestamp,
+						data: args.data
+					});
+
+					// Call the API using the new writeDeviceData method
+					const writeResult = await EUOneAPIUtils.writeDeviceData(env, {
+						deviceKey: args.deviceKey.trim(),
+						productKey: args.productKey.trim(),
+						upTsTime: timestamp,
+						data: args.data
+					});
+
+					console.log("✅ Device data uploaded successfully");
+
+					// Format the response
+					let responseText = `📤 **Device Data Upload Successful**\n`;
+					responseText += `Device Key: \`${args.deviceKey.trim()}\`\n`;
+					responseText += `Product Key: \`${args.productKey.trim()}\`\n`;
+					responseText += `Upload Time: \`${timestamp}\` (${this.formatTimestamp(Number(timestamp))})\n`;
+					responseText += `============================================================\n\n`;
+
+					// Show uploaded data
+					responseText += `✅ **Data Successfully Uploaded:**\n`;
+					Object.entries(args.data).forEach(([key, value]) => {
+						responseText += `   📊 ${key}: ${value}\n`;
+					});
+
+					responseText += `\n📊 **Summary**: Successfully simulated device data upload for device \`${args.deviceKey.trim()}\`\n`;
+					responseText += `🏭 Product: \`${args.productKey.trim()}\`\n`;
+					responseText += `📈 Properties: ${Object.keys(args.data).length} data point(s) uploaded\n`;
+					responseText += `⏰ Timestamp: ${this.formatTimestamp(Number(timestamp))}\n`;
+
+					// API response information
+					if (writeResult.msg) {
+						responseText += `\n💬 **API Response**: ${writeResult.msg}\n`;
+					}
+
+					responseText += `\n💡 **Note**: This is simulated data upload for testing/demonstration purposes.\n`;
+					responseText += `Use \`get_device_properties\` with deviceId to see the actual device TSL properties.\n`;
+
+					return {
+						content: [
+							{
+								type: "text",
+								text: responseText,
+							},
+						],
+					};
+				} catch (error) {
+					console.error("❌ write_device_data error:", error);
+
+					let errorMessage = "Unknown error occurred";
+					if (error instanceof Error) {
+						errorMessage = error.message;
+					}
+
+					return {
+						content: [
+							{
+								type: "text",
+								text: `❌ Error writing device data: ${errorMessage}`,
 							},
 						],
 					};

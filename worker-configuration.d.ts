@@ -6,6 +6,7 @@ declare namespace Cloudflare {
 		APP_ID: string;
 		APP_SECRET: string;
 		INDUSTRY_CODE: string;
+		INTERNAL_API_PATH: string;
 	}
 }
 interface Env extends Cloudflare.Env {}
