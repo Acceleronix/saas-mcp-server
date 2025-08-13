@@ -1022,61 +1022,96 @@ export class EUOneAPIUtils {
 	static async writeDeviceData(
 		env: EUOneEnvironment,
 		options: {
-			deviceKey: string;
 			productKey: string;
-			upTsTime: string;
-			data: Record<string, any>;
+			deviceKey: string;
+			data: Record<string, any>; // Dynamic properties from device's TSL model
+			upTsTime?: number;
 		},
 	): Promise<any> {
-		return EUOneAPIUtils.safeAPICallWithTokenRefresh(env, async (token) => {
-			console.log("🔐 Using token for write device data (length):", token.length);
+		return EUOneAPIUtils.safeAPICall(async () => {
+			const token = await EUOneAPIUtils.getAccessToken(env);
+			console.log("🔐 Using token for device data write (length):", token.length);
 
-			// Build request body matching the Swagger specification
+			// Validate required environment variable
+			if (!env.INTERNAL_API_PATH) {
+				throw new Error("INTERNAL_API_PATH environment variable is required for device data simulation");
+			}
+
+			// Set default timestamp if not provided
 			const requestBody = {
-				deviceKey: options.deviceKey,
 				productKey: options.productKey,
-				upTsTime: options.upTsTime,
-				data: options.data,
+				deviceKey: options.deviceKey,
+				data: options.data, // User-provided property values
+				upTsTime: options.upTsTime || Date.now()
 			};
 
-			console.log("📝 Write device data request body:", JSON.stringify(requestBody, null, 2));
+			console.log("📤 Device data write request body:", JSON.stringify(requestBody, null, 2));
 
-			if (!env.INTERNAL_API_PATH) {
-			throw new Error("INTERNAL_API_PATH environment variable is required for device data simulation");
-		}
-		const url = `${env.BASE_URL}${env.INTERNAL_API_PATH}`;
-			console.log("📝 Write device data request URL:", url);
+			const url = `${env.BASE_URL}${env.INTERNAL_API_PATH}`;
+			console.log("📝 Device data write request URL:", url);
 
 			const response = await fetch(url, {
 				method: "POST",
 				headers: {
-					Authorization: token, // Direct token, no "Bearer " prefix
-					"Accept-Language": "en-US",
+					Authorization: `Bearer ${token}`,
 					"Content-Type": "application/json",
 				},
 				body: JSON.stringify(requestBody),
 			});
 
-			console.log("📡 Write device data response status:", response.status);
+			console.log("📡 Device data write response status:", response.status);
+			console.log("📡 Device data write response headers:", Object.fromEntries(response.headers.entries()));
 
 			if (!response.ok) {
 				const errorText = await response.text();
-				console.error("❌ Write device data HTTP error response:", errorText);
-				throw new Error(`API call failed: HTTP ${response.status} - ${errorText}`);
+				console.error("❌ Device data write HTTP error response:", errorText);
+				throw new Error(`API call failed: ${response.status} - ${errorText}`);
 			}
 
 			const result = (await response.json()) as any;
-			console.log("📤 Write device data API response:", JSON.stringify(result, null, 2));
+			console.log("📤 Device data write API response:", JSON.stringify(result, null, 2));
+			
+			// Handle potential session timeout and retry
+			if (result.code && result.code !== 200) {
+				if (result.msg && result.msg.includes("Session timed out")) {
+					console.log("🔄 Session timeout detected, forcing token refresh and retrying...");
+					// Clear the cached token to force refresh
+					accessToken = null;
+					tokenExpiry = 0;
+					
+					// Get new token
+					const newToken = await EUOneAPIUtils.getAccessToken(env);
+					console.log("🔐 Retrying device data write with new token (length):", newToken.length);
+					
+					// Retry the request with new token
+					const retryResponse = await fetch(url, {
+						method: "POST",
+						headers: {
+							Authorization: `Bearer ${newToken}`,
+							"Content-Type": "application/json",
+						},
+						body: JSON.stringify(requestBody),
+					});
 
-			if (result.code !== 200) {
-				console.error("❌ Write device data API returned error code:", {
-					code: result.code,
-					msg: result.msg,
-					fullResponse: result
-				});
-				throw new Error(`API call failed: Code ${result.code} - ${result.msg || "Unknown error"}`);
+					if (!retryResponse.ok) {
+						const retryErrorText = await retryResponse.text();
+						throw new Error(`Retry API call failed: ${retryResponse.status} - ${retryErrorText}`);
+					}
+
+					const retryResult = (await retryResponse.json()) as any;
+					console.log("🔄 Device data write retry response:", JSON.stringify(retryResult, null, 2));
+					
+					if (retryResult.code && retryResult.code !== 200) {
+						throw new Error(`Retry API call failed: ${retryResult.msg || 'Unknown error'}`);
+					}
+					
+					return retryResult;
+				}
+				
+				throw new Error(`API call failed: ${result.msg || 'Unknown error'}`);
 			}
 
+			// For successful response (code 200 or no code field)
 			return result;
 		});
 	}

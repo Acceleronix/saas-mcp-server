@@ -2040,10 +2040,10 @@ export class VirtualDataMCP extends McpAgent {
 		this.server.tool(
 			"write_device_data",
 			{
-				deviceKey: z.string().describe("Device key (required, e.g., 'VDU1293621240625108')"),
-				productKey: z.string().describe("Product key (required, e.g., 'pe17Ez')"),
-				upTsTime: z.string().describe("Upload timestamp in milliseconds (required, e.g., '1753241244280')"),
-				data: z.record(z.any()).describe("Device data object with property values (required, e.g., {temperature: 26.7, humidity: 68})")
+				deviceKey: z.string().describe("Device key (required, e.g., '869487060952008')"),
+				productKey: z.string().describe("Product key (required, e.g., 'pe17Nb')"),
+				upTsTime: z.number().optional().describe("Upload timestamp in milliseconds (optional, defaults to current time)"),
+				data: z.record(z.any()).describe("Device data object with TSL property values (required, e.g., {temperature: 26.7, humidity: 68})")
 			},
 			async ({ deviceKey, productKey, upTsTime, data }) => {
 				console.log("🔥 write_device_data function ENTRY - parameters:", { deviceKey, productKey, upTsTime, data });
@@ -2060,42 +2060,38 @@ export class VirtualDataMCP extends McpAgent {
 						throw new Error("productKey is required and must be a non-empty string");
 					}
 
-					if (!upTsTime || typeof upTsTime !== "string" || upTsTime.trim() === "") {
-						throw new Error("upTsTime is required and must be a non-empty string");
-					}
-
 					if (!data || typeof data !== "object" || Array.isArray(data)) {
 						throw new Error("data is required and must be an object");
 					}
 
-					// Validate timestamp format (should be numeric string)
-					const timestamp = upTsTime.trim();
-					if (!/^\d+$/.test(timestamp)) {
-						throw new Error("upTsTime must be a numeric timestamp string (e.g., '1753241244280')");
+					// Validate timestamp if provided
+					if (upTsTime !== undefined && (typeof upTsTime !== "number" || upTsTime <= 0)) {
+						throw new Error("upTsTime must be a positive number representing milliseconds since epoch");
 					}
 
 					console.log("✅ Using validated parameters:", { 
 						deviceKey: deviceKey.trim(),
 						productKey: productKey.trim(),
-						upTsTime: timestamp,
+						upTsTime: upTsTime,
 						data: data
 					});
 
-					// Call the API using the new writeDeviceData method
+					// Call the API using the optimized writeDeviceData method
 					const writeResult = await EUOneAPIUtils.writeDeviceData(env, {
 						deviceKey: deviceKey.trim(),
 						productKey: productKey.trim(),
-						upTsTime: timestamp,
+						upTsTime: upTsTime,
 						data: data
 					});
 
 					console.log("✅ Device data uploaded successfully");
 
 					// Format the response
+					const actualTimestamp = upTsTime || Date.now();
 					let responseText = `📤 **Device Data Upload Successful**\n`;
 					responseText += `Device Key: \`${deviceKey.trim()}\`\n`;
 					responseText += `Product Key: \`${productKey.trim()}\`\n`;
-					responseText += `Upload Time: \`${timestamp}\` (${this.formatTimestamp(Number(timestamp))})\n`;
+					responseText += `Upload Time: \`${actualTimestamp}\` (${this.formatTimestamp(actualTimestamp)})\n`;
 					responseText += `============================================================\n\n`;
 
 					// Show uploaded data
@@ -2107,7 +2103,7 @@ export class VirtualDataMCP extends McpAgent {
 					responseText += `\n📊 **Summary**: Successfully simulated device data upload for device \`${deviceKey.trim()}\`\n`;
 					responseText += `🏭 Product: \`${productKey.trim()}\`\n`;
 					responseText += `📈 Properties: ${Object.keys(data).length} data point(s) uploaded\n`;
-					responseText += `⏰ Timestamp: ${this.formatTimestamp(Number(timestamp))}\n`;
+					responseText += `⏰ Timestamp: ${this.formatTimestamp(actualTimestamp)}\n`;
 
 					// API response information
 					if (writeResult.msg) {
