@@ -93,9 +93,9 @@ export class VirtualDataMCP extends McpAgent {
 		this.addDeviceEventsTool(env);
 		console.log("✅ Device events tool registered");
 
-		// Write device data tool
-		this.addWriteDeviceDataTool(env);
-		console.log("✅ Write device data tool registered");
+		// Upload device data tool
+		this.addUploadDeviceDataTool(env);
+		console.log("✅ Upload device data tool registered");
 
 		console.log("📋 MCP tools registered successfully");
 
@@ -2036,9 +2036,9 @@ export class VirtualDataMCP extends McpAgent {
 		);
 	}
 
-	private addWriteDeviceDataTool(env: EUOneEnvironment) {
+	private addUploadDeviceDataTool(env: EUOneEnvironment) {
 		this.server.tool(
-			"write_device_data",
+			"upload_device_data",
 			{
 				deviceKey: z.string().describe("Device key (required, e.g., '869487060952008')"),
 				productKey: z.string().describe("Product key (required, e.g., 'pe17Nb')"),
@@ -2046,10 +2046,10 @@ export class VirtualDataMCP extends McpAgent {
 				data: z.record(z.any()).describe("Device data object with TSL property values (required, e.g., {temperature: 26.7, humidity: 68})")
 			},
 			async ({ deviceKey, productKey, upTsTime, data }) => {
-				console.log("🔥 write_device_data function ENTRY - parameters:", { deviceKey, productKey, upTsTime, data });
+				console.log("🔥 upload_device_data function ENTRY - parameters:", { deviceKey, productKey, upTsTime, data });
 				
 				try {
-					console.log("🚀 write_device_data called with parameters:", { deviceKey, productKey, upTsTime, data });
+					console.log("🚀 upload_device_data called with parameters:", { deviceKey, productKey, upTsTime, data });
 
 					// Parameter validation
 					if (!deviceKey || typeof deviceKey !== "string" || deviceKey.trim() === "") {
@@ -2076,8 +2076,8 @@ export class VirtualDataMCP extends McpAgent {
 						data: data
 					});
 
-					// Call the API using the optimized writeDeviceData method
-					const writeResult = await EUOneAPIUtils.writeDeviceData(env, {
+					// Call the API using the optimized uploadDeviceData method
+					const uploadResult = await EUOneAPIUtils.uploadDeviceData(env, {
 						deviceKey: deviceKey.trim(),
 						productKey: productKey.trim(),
 						upTsTime: upTsTime,
@@ -2106,8 +2106,8 @@ export class VirtualDataMCP extends McpAgent {
 					responseText += `⏰ Timestamp: ${this.formatTimestamp(actualTimestamp)}\n`;
 
 					// API response information
-					if (writeResult.msg) {
-						responseText += `\n💬 **API Response**: ${writeResult.msg}\n`;
+					if (uploadResult.msg) {
+						responseText += `\n💬 **API Response**: ${uploadResult.msg}\n`;
 					}
 
 					responseText += `\n💡 **Note**: This is simulated data upload for testing/demonstration purposes.\n`;
@@ -2122,7 +2122,7 @@ export class VirtualDataMCP extends McpAgent {
 						],
 					};
 				} catch (error) {
-					console.error("❌ write_device_data error:", error);
+					console.error("❌ upload_device_data error:", error);
 
 					let errorMessage = "Unknown error occurred";
 					if (error instanceof Error) {
@@ -2133,7 +2133,7 @@ export class VirtualDataMCP extends McpAgent {
 						content: [
 							{
 								type: "text",
-								text: `❌ Error writing device data: ${errorMessage}`,
+								text: `❌ Error uploading device data: ${errorMessage}`,
 							},
 						],
 					};

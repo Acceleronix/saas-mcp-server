@@ -1019,7 +1019,7 @@ export class EUOneAPIUtils {
 		});
 	}
 
-	static async writeDeviceData(
+	static async uploadDeviceData(
 		env: EUOneEnvironment,
 		options: {
 			productKey: string;
@@ -1030,7 +1030,7 @@ export class EUOneAPIUtils {
 	): Promise<any> {
 		return EUOneAPIUtils.safeAPICall(async () => {
 			const token = await EUOneAPIUtils.getAccessToken(env);
-			console.log("🔐 Using token for device data write (length):", token.length);
+			console.log("🔐 Using token for device data upload (length):", token.length);
 
 			// Validate required environment variable
 			if (!env.INTERNAL_API_PATH) {
@@ -1045,10 +1045,10 @@ export class EUOneAPIUtils {
 				upTsTime: options.upTsTime || Date.now()
 			};
 
-			console.log("📤 Device data write request body:", JSON.stringify(requestBody, null, 2));
+			console.log("📤 Device data upload request body:", JSON.stringify(requestBody, null, 2));
 
 			const url = `${env.BASE_URL}${env.INTERNAL_API_PATH}`;
-			console.log("📝 Device data write request URL:", url);
+			console.log("📝 Device data upload request URL:", url);
 
 			const response = await fetch(url, {
 				method: "POST",
@@ -1059,17 +1059,17 @@ export class EUOneAPIUtils {
 				body: JSON.stringify(requestBody),
 			});
 
-			console.log("📡 Device data write response status:", response.status);
-			console.log("📡 Device data write response headers:", Object.fromEntries(response.headers.entries()));
+			console.log("📡 Device data upload response status:", response.status);
+			console.log("📡 Device data upload response headers:", Object.fromEntries(response.headers.entries()));
 
 			if (!response.ok) {
 				const errorText = await response.text();
-				console.error("❌ Device data write HTTP error response:", errorText);
+				console.error("❌ Device data upload HTTP error response:", errorText);
 				throw new Error(`API call failed: ${response.status} - ${errorText}`);
 			}
 
 			const result = (await response.json()) as any;
-			console.log("📤 Device data write API response:", JSON.stringify(result, null, 2));
+			console.log("📤 Device data upload API response:", JSON.stringify(result, null, 2));
 			
 			// Handle potential session timeout and retry
 			if (result.code && result.code !== 200) {
@@ -1081,7 +1081,7 @@ export class EUOneAPIUtils {
 					
 					// Get new token
 					const newToken = await EUOneAPIUtils.getAccessToken(env);
-					console.log("🔐 Retrying device data write with new token (length):", newToken.length);
+					console.log("🔐 Retrying device data upload with new token (length):", newToken.length);
 					
 					// Retry the request with new token
 					const retryResponse = await fetch(url, {
@@ -1099,7 +1099,7 @@ export class EUOneAPIUtils {
 					}
 
 					const retryResult = (await retryResponse.json()) as any;
-					console.log("🔄 Device data write retry response:", JSON.stringify(retryResult, null, 2));
+					console.log("🔄 Device data upload retry response:", JSON.stringify(retryResult, null, 2));
 					
 					if (retryResult.code && retryResult.code !== 200) {
 						throw new Error(`Retry API call failed: ${retryResult.msg || 'Unknown error'}`);
