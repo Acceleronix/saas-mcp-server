@@ -1053,7 +1053,7 @@ export class EUOneAPIUtils {
 			const response = await fetch(url, {
 				method: "POST",
 				headers: {
-					Authorization: `Bearer ${token}`,
+					Authorization: token, // Direct token, no "Bearer " prefix
 					"Content-Type": "application/json",
 				},
 				body: JSON.stringify(requestBody),
@@ -1087,7 +1087,7 @@ export class EUOneAPIUtils {
 					const retryResponse = await fetch(url, {
 						method: "POST",
 						headers: {
-							Authorization: `Bearer ${newToken}`,
+							Authorization: newToken, // Direct token, no "Bearer " prefix
 							"Content-Type": "application/json",
 						},
 						body: JSON.stringify(requestBody),

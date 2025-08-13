@@ -97,6 +97,10 @@ export class VirtualDataMCP extends McpAgent {
 		this.addWriteDeviceDataTool(env);
 		console.log("✅ Write device data tool registered");
 
+		// Login/Re-login tool
+		this.addLoginTool(env);
+		console.log("✅ Login tool registered");
+
 		console.log("📋 MCP tools registered successfully");
 
 		// Auto-login on server initialization with improved error handling
