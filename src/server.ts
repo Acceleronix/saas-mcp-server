@@ -2039,93 +2039,74 @@ export class VirtualDataMCP extends McpAgent {
 	private addWriteDeviceDataTool(env: EUOneEnvironment) {
 		this.server.tool(
 			"write_device_data",
-			"Simulate uploading device data to IoT platform - useful for testing and demonstration purposes",
 			{
-				type: "object",
-				properties: {
-					deviceKey: {
-						type: "string",
-						description: "Device key (required, e.g., 'VDU1293621240625108')"
-					},
-					productKey: {
-						type: "string",
-						description: "Product key (required, e.g., 'pe17Ez')"
-					},
-					upTsTime: {
-						type: "string",
-						description: "Upload timestamp in milliseconds (required, e.g., '1753241244280')"
-					},
-					data: {
-						type: "object",
-						description: "Device data object with property values (required, e.g., {\"temperature\": 26.7, \"humidity\": 68})",
-						additionalProperties: true
-					}
-				},
-				required: ["deviceKey", "productKey", "upTsTime", "data"],
-				additionalProperties: false,
+				deviceKey: z.string().describe("Device key (required, e.g., 'VDU1293621240625108')"),
+				productKey: z.string().describe("Product key (required, e.g., 'pe17Ez')"),
+				upTsTime: z.string().describe("Upload timestamp in milliseconds (required, e.g., '1753241244280')"),
+				data: z.record(z.any()).describe("Device data object with property values (required, e.g., {temperature: 26.7, humidity: 68})")
 			},
-			async (args) => {
-				console.log("🔥 write_device_data function ENTRY - parameters:", args);
+			async ({ deviceKey, productKey, upTsTime, data }) => {
+				console.log("🔥 write_device_data function ENTRY - parameters:", { deviceKey, productKey, upTsTime, data });
 				
 				try {
-					console.log("🚀 write_device_data called with parameters:", args);
+					console.log("🚀 write_device_data called with parameters:", { deviceKey, productKey, upTsTime, data });
 
 					// Parameter validation
-					if (!args.deviceKey || typeof args.deviceKey !== "string" || args.deviceKey.trim() === "") {
+					if (!deviceKey || typeof deviceKey !== "string" || deviceKey.trim() === "") {
 						throw new Error("deviceKey is required and must be a non-empty string");
 					}
 
-					if (!args.productKey || typeof args.productKey !== "string" || args.productKey.trim() === "") {
+					if (!productKey || typeof productKey !== "string" || productKey.trim() === "") {
 						throw new Error("productKey is required and must be a non-empty string");
 					}
 
-					if (!args.upTsTime || typeof args.upTsTime !== "string" || args.upTsTime.trim() === "") {
+					if (!upTsTime || typeof upTsTime !== "string" || upTsTime.trim() === "") {
 						throw new Error("upTsTime is required and must be a non-empty string");
 					}
 
-					if (!args.data || typeof args.data !== "object" || Array.isArray(args.data)) {
+					if (!data || typeof data !== "object" || Array.isArray(data)) {
 						throw new Error("data is required and must be an object");
 					}
 
 					// Validate timestamp format (should be numeric string)
-					const timestamp = args.upTsTime.trim();
+					const timestamp = upTsTime.trim();
 					if (!/^\d+$/.test(timestamp)) {
 						throw new Error("upTsTime must be a numeric timestamp string (e.g., '1753241244280')");
 					}
 
 					console.log("✅ Using validated parameters:", { 
-						deviceKey: args.deviceKey.trim(),
-						productKey: args.productKey.trim(),
+						deviceKey: deviceKey.trim(),
+						productKey: productKey.trim(),
 						upTsTime: timestamp,
-						data: args.data
+						data: data
 					});
 
 					// Call the API using the new writeDeviceData method
 					const writeResult = await EUOneAPIUtils.writeDeviceData(env, {
-						deviceKey: args.deviceKey.trim(),
-						productKey: args.productKey.trim(),
+						deviceKey: deviceKey.trim(),
+						productKey: productKey.trim(),
 						upTsTime: timestamp,
-						data: args.data
+						data: data
 					});
 
 					console.log("✅ Device data uploaded successfully");
 
 					// Format the response
 					let responseText = `📤 **Device Data Upload Successful**\n`;
-					responseText += `Device Key: \`${args.deviceKey.trim()}\`\n`;
-					responseText += `Product Key: \`${args.productKey.trim()}\`\n`;
+					responseText += `Device Key: \`${deviceKey.trim()}\`\n`;
+					responseText += `Product Key: \`${productKey.trim()}\`\n`;
 					responseText += `Upload Time: \`${timestamp}\` (${this.formatTimestamp(Number(timestamp))})\n`;
 					responseText += `============================================================\n\n`;
 
 					// Show uploaded data
 					responseText += `✅ **Data Successfully Uploaded:**\n`;
-					Object.entries(args.data).forEach(([key, value]) => {
+					Object.entries(data).forEach(([key, value]) => {
 						responseText += `   📊 ${key}: ${value}\n`;
 					});
 
-					responseText += `\n📊 **Summary**: Successfully simulated device data upload for device \`${args.deviceKey.trim()}\`\n`;
-					responseText += `🏭 Product: \`${args.productKey.trim()}\`\n`;
-					responseText += `📈 Properties: ${Object.keys(args.data).length} data point(s) uploaded\n`;
+					responseText += `\n📊 **Summary**: Successfully simulated device data upload for device \`${deviceKey.trim()}\`\n`;
+					responseText += `🏭 Product: \`${productKey.trim()}\`\n`;
+					responseText += `📈 Properties: ${Object.keys(data).length} data point(s) uploaded\n`;
 					responseText += `⏰ Timestamp: ${this.formatTimestamp(Number(timestamp))}\n`;
 
 					// API response information
