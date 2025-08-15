@@ -97,6 +97,10 @@ export class VirtualDataMCP extends McpAgent {
 		this.addUploadDeviceDataTool(env);
 		console.log("✅ Upload device data tool registered");
 
+		// Write device data (control) tool
+		this.addWriteDeviceDataTool(env);
+		console.log("✅ Write device data (control) tool registered");
+
 		console.log("📋 MCP tools registered successfully");
 
 		// Auto-login on server initialization with improved error handling
@@ -2134,6 +2138,139 @@ export class VirtualDataMCP extends McpAgent {
 							{
 								type: "text",
 								text: `❌ Error uploading device data: ${errorMessage}`,
+							},
+						],
+					};
+				}
+			},
+		);
+	}
+
+	private addWriteDeviceDataTool(env: EUOneEnvironment) {
+		this.server.tool(
+			"write_device_data",
+			{
+				deviceIdList: z.array(z.number()).describe("List of device IDs to send control commands to (required, e.g., [43017])"),
+				tslPropMap: z.record(z.any()).optional().describe("TSL property control map: propCode -> downValue (optional, e.g., {\"FAN_SWITCH\": true, \"int_rw\": 1})"),
+				tslServiceMap: z.record(z.record(z.any())).optional().describe("TSL service control map: serviceCode -> {propCode: value} (optional)"),
+				batchSendType: z.string().optional().describe("Batch send type, default is detail send (optional)"),
+				cacheTime: z.number().optional().describe("Cache time in seconds (optional)"),
+				isCache: z.boolean().optional().describe("Whether to use cache (optional)")
+			},
+			async ({ deviceIdList, tslPropMap, tslServiceMap, batchSendType, cacheTime, isCache }) => {
+				console.log("🔥 write_device_data function ENTRY - parameters:", { 
+					deviceIdList, tslPropMap, tslServiceMap, batchSendType, cacheTime, isCache 
+				});
+				
+				try {
+					console.log("🚀 write_device_data called with parameters:", { 
+						deviceIdList, tslPropMap, tslServiceMap, batchSendType, cacheTime, isCache 
+					});
+
+					// Parameter validation
+					if (!deviceIdList || !Array.isArray(deviceIdList) || deviceIdList.length === 0) {
+						throw new Error("deviceIdList is required and must be a non-empty array of device IDs");
+					}
+
+					// Validate deviceIdList contains only numbers
+					const invalidIds = deviceIdList.filter(id => typeof id !== "number" || !Number.isInteger(id) || id <= 0);
+					if (invalidIds.length > 0) {
+						throw new Error(`Invalid device IDs: ${invalidIds.join(", ")}. Device IDs must be positive integers.`);
+					}
+
+					// At least one of tslPropMap or tslServiceMap must be provided
+					if (!tslPropMap && !tslServiceMap) {
+						throw new Error("At least one of tslPropMap or tslServiceMap must be provided");
+					}
+
+					console.log("✅ Using validated parameters:", { 
+						deviceIdList,
+						tslPropMap,
+						tslServiceMap,
+						batchSendType,
+						cacheTime,
+						isCache
+					});
+
+					// Call the API using the new writeDeviceData method
+					const controlResult = await EUOneAPIUtils.writeDeviceData(env, {
+						deviceIdList,
+						tslPropMap,
+						tslServiceMap,
+						batchSendType,
+						cacheTime,
+						isCache
+					});
+
+					console.log("✅ Device control command sent successfully");
+
+					// Format the response
+					let responseText = `🎛️ **Device Control Command Sent Successfully**\n`;
+					responseText += `Target Devices: \`${deviceIdList.join(", ")}\`\n`;
+					responseText += `============================================================\n\n`;
+
+					// Show control commands sent
+					if (tslPropMap && Object.keys(tslPropMap).length > 0) {
+						responseText += `✅ **Property Controls Sent:**\n`;
+						Object.entries(tslPropMap).forEach(([propCode, value]) => {
+							responseText += `   🎛️ ${propCode}: ${value}\n`;
+						});
+						responseText += `\n`;
+					}
+
+					if (tslServiceMap && Object.keys(tslServiceMap).length > 0) {
+						responseText += `✅ **Service Commands Sent:**\n`;
+						Object.entries(tslServiceMap).forEach(([serviceCode, params]) => {
+							responseText += `   🔧 Service: ${serviceCode}\n`;
+							Object.entries(params).forEach(([paramCode, value]) => {
+								responseText += `      • ${paramCode}: ${value}\n`;
+							});
+						});
+						responseText += `\n`;
+					}
+
+					responseText += `📊 **Summary**: Successfully sent control commands to ${deviceIdList.length} device(s)\n`;
+					responseText += `🎯 Target Device IDs: ${deviceIdList.join(", ")}\n`;
+					
+					// Additional configuration
+					const configDetails = [];
+					if (batchSendType) configDetails.push(`Batch Type: ${batchSendType}`);
+					if (cacheTime !== undefined) configDetails.push(`Cache Time: ${cacheTime}s`);
+					if (isCache !== undefined) configDetails.push(`Use Cache: ${isCache ? "Yes" : "No"}`);
+					
+					if (configDetails.length > 0) {
+						responseText += `⚙️ Configuration: ${configDetails.join(", ")}\n`;
+					}
+
+					// API response information
+					if (controlResult.msg) {
+						responseText += `\n💬 **API Response**: ${controlResult.msg}\n`;
+					}
+
+					responseText += `\n💡 **Note**: Control commands have been sent to the device(s). Check device status to verify execution.\n`;
+					responseText += `Use \`get_device_properties\` to view current device property values and control status.\n`;
+
+					return {
+						content: [
+							{
+								type: "text",
+								text: responseText,
+							},
+						],
+					};
+				} catch (error) {
+					console.error("❌ write_device_data error:", error);
+
+					let errorMessage = "Unknown error occurred";
+					if (error instanceof Error) {
+						errorMessage = error.message;
+					}
+
+					return {
+						content: [
+							{
+								type: "text",
+								text: `❌ Error sending device control commands: ${errorMessage}`,
 							},
 						],
 					};

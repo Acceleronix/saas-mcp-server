@@ -1116,4 +1116,62 @@ export class EUOneAPIUtils {
 		});
 	}
 
+	static async writeDeviceData(
+		env: EUOneEnvironment,
+		options: {
+			deviceIdList: number[];
+			tslPropMap?: Record<string, any>;
+			tslServiceMap?: Record<string, Record<string, any>>;
+			batchSendType?: string;
+			cacheTime?: number;
+			isCache?: boolean;
+		},
+	): Promise<any> {
+		return EUOneAPIUtils.safeAPICallWithTokenRefresh(env, async (token) => {
+			console.log("🔐 Using token for device control write (length):", token.length);
+
+			// Build request body with required and optional parameters
+			const requestBody = {
+				deviceIdList: options.deviceIdList,
+				...(options.tslPropMap && { tslPropMap: options.tslPropMap }),
+				...(options.tslServiceMap && { tslServiceMap: options.tslServiceMap }),
+				...(options.batchSendType && { batchSendType: options.batchSendType }),
+				...(options.cacheTime !== undefined && { cacheTime: options.cacheTime }),
+				...(options.isCache !== undefined && { isCache: options.isCache }),
+			};
+
+			console.log("📤 Device control write request body:", JSON.stringify(requestBody, null, 2));
+
+			const url = `${env.BASE_URL}/v2/device/detail/write/tsl/data`;
+			console.log("📝 Device control write request URL:", url);
+
+			const response = await fetch(url, {
+				method: "POST",
+				headers: {
+					Authorization: token, // Direct token, no "Bearer " prefix
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify(requestBody),
+			});
+
+			console.log("📡 Device control write response status:", response.status);
+			console.log("📡 Device control write response headers:", Object.fromEntries(response.headers.entries()));
+
+			if (!response.ok) {
+				const errorText = await response.text();
+				console.error("❌ Device control write HTTP error response:", errorText);
+				throw new Error(`API call failed: ${response.status} - ${errorText}`);
+			}
+
+			const result = (await response.json()) as any;
+			console.log("📤 Device control write API response:", JSON.stringify(result, null, 2));
+
+			if (result.code && result.code !== 200) {
+				throw new Error(`API call failed: ${result.msg || 'Unknown error'}`);
+			}
+
+			return result;
+		});
+	}
+
 }
