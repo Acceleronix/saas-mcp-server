@@ -2247,8 +2247,11 @@ export class VirtualDataMCP extends McpAgent {
 						responseText += `\n💬 **API Response**: ${controlResult.msg}\n`;
 					}
 
-					responseText += `\n💡 **Note**: Control commands have been sent to the device(s). Check device status to verify execution.\n`;
-					responseText += `Use \`get_device_properties\` to view current device property values and control status.\n`;
+					responseText += `\n💡 **Important Notes**:\n`;
+					responseText += `🎛️ **Physical Control**: Device should respond immediately to the control command\n`;
+					responseText += `📊 **Status Display**: Platform status may take 1-2 minutes to update due to device reporting cycles\n`;
+					responseText += `🔄 **Status Sync**: This is normal IoT behavior - control (downlink) is immediate, status reporting (uplink) is periodic\n`;
+					responseText += `\n💡 **To check current status**: Use \`get_device_properties\` with deviceId: ${deviceIdList.join(", ")} to view latest reported values\n`;
 
 					return {
 						content: [
