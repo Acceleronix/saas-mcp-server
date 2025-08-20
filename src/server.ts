@@ -1,9 +1,6 @@
 import { McpAgent } from "agents/mcp";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import {
-	type EUOneEnvironment,
-	EUOneAPIUtils,
-} from "./utils";
+import { type EUOneEnvironment, EUOneAPIUtils } from "./utils";
 import { z } from "zod";
 
 export class VirtualDataMCP extends McpAgent {
@@ -15,19 +12,18 @@ export class VirtualDataMCP extends McpAgent {
 	// Helper function to format timestamps for both China timezone and UTC
 	private formatTimestamp(timestamp: number | string): string {
 		const date = new Date(timestamp);
-		const chinaTime = new Intl.DateTimeFormat('zh-CN', {
-			timeZone: 'Asia/Shanghai',
-			year: 'numeric',
-			month: '2-digit',
-			day: '2-digit',
-			hour: '2-digit',
-			minute: '2-digit',
-			second: '2-digit',
-			hour12: false
+		const chinaTime = new Intl.DateTimeFormat("zh-CN", {
+			timeZone: "Asia/Shanghai",
+			year: "numeric",
+			month: "2-digit",
+			day: "2-digit",
+			hour: "2-digit",
+			minute: "2-digit",
+			second: "2-digit",
+			hour12: false,
 		}).format(date);
 		return `${chinaTime} (China) | ${date.toISOString()} (UTC)`;
 	}
-
 
 	async init() {
 		console.log("🚀 MCP Server starting initialization...");
@@ -37,21 +33,35 @@ export class VirtualDataMCP extends McpAgent {
 		console.log("🔍 Environment check:");
 		console.log("  - BASE_URL:", env.BASE_URL ? "✅ Set" : "❌ Missing");
 		console.log("  - APP_ID:", env.APP_ID ? "✅ Set" : "❌ Missing");
-		console.log("  - APP_SECRET:", env.APP_SECRET ? "✅ Set" : "❌ Missing");  
-		console.log("  - INDUSTRY_CODE:", env.INDUSTRY_CODE ? "✅ Set" : "❌ Missing");
-		console.log("  - INTERNAL_API_PATH:", env.INTERNAL_API_PATH ? "✅ Set" : "❌ Missing");
+		console.log("  - APP_SECRET:", env.APP_SECRET ? "✅ Set" : "❌ Missing");
+		console.log(
+			"  - INDUSTRY_CODE:",
+			env.INDUSTRY_CODE ? "✅ Set" : "❌ Missing",
+		);
+		console.log(
+			"  - INTERNAL_API_PATH:",
+			env.INTERNAL_API_PATH ? "✅ Set" : "❌ Missing",
+		);
 
 		// Validate environment variables - but don't throw error to allow tools registration
-		if (!env.BASE_URL || !env.APP_ID || !env.APP_SECRET || !env.INDUSTRY_CODE || !env.INTERNAL_API_PATH) {
+		if (
+			!env.BASE_URL ||
+			!env.APP_ID ||
+			!env.APP_SECRET ||
+			!env.INDUSTRY_CODE ||
+			!env.INTERNAL_API_PATH
+		) {
 			console.error(
 				"❌ Missing required environment variables: BASE_URL, APP_ID, APP_SECRET, INDUSTRY_CODE, INTERNAL_API_PATH",
 			);
-			console.log("⚠️ MCP server will start with limited functionality - tools will show authentication errors");
+			console.log(
+				"⚠️ MCP server will start with limited functionality - tools will show authentication errors",
+			);
 		}
 
 		// Always register tools first, regardless of environment validation
 		console.log("📋 Registering MCP tools...");
-		
+
 		// Health check / login test tool
 		this.addHealthCheckTool(env);
 		console.log("✅ Health check tool registered");
@@ -63,7 +73,6 @@ export class VirtualDataMCP extends McpAgent {
 		// Product details tool
 		this.addProductDetailsTool(env);
 		console.log("✅ Product details tool registered");
-
 
 		// Device list tool
 		this.addDeviceListTool(env);
@@ -101,15 +110,29 @@ export class VirtualDataMCP extends McpAgent {
 		this.addWriteDeviceDataTool(env);
 		console.log("✅ Write device data (control) tool registered");
 
+		// Query device data tool
+		this.addQueryDeviceDataTool(env);
+		console.log("✅ Query device data tool registered");
+
 		console.log("📋 MCP tools registered successfully");
 
 		// Auto-login on server initialization with improved error handling
 		// This happens AFTER tools are registered and ensures token is ready for immediate use
-		if (env.BASE_URL && env.APP_ID && env.APP_SECRET && env.INDUSTRY_CODE && env.INTERNAL_API_PATH) {
+		if (
+			env.BASE_URL &&
+			env.APP_ID &&
+			env.APP_SECRET &&
+			env.INDUSTRY_CODE &&
+			env.INTERNAL_API_PATH
+		) {
 			try {
-				console.log("🔐 Pre-warming authentication for better user experience...");
+				console.log(
+					"🔐 Pre-warming authentication for better user experience...",
+				);
 				await EUOneAPIUtils.getAccessToken(env);
-				console.log("✅ Authentication pre-warmed - MCP server ready for immediate use");
+				console.log(
+					"✅ Authentication pre-warmed - MCP server ready for immediate use",
+				);
 			} catch (error) {
 				console.error("❌ Authentication pre-warming failed:", error);
 				// Don't throw error here - allow server to start even if login fails
@@ -119,7 +142,9 @@ export class VirtualDataMCP extends McpAgent {
 				);
 			}
 		} else {
-			console.log("⚠️ Skipping authentication pre-warming due to missing environment variables");
+			console.log(
+				"⚠️ Skipping authentication pre-warming due to missing environment variables",
+			);
 		}
 
 		console.log("🚀 MCP Server initialization completed");
@@ -137,19 +162,19 @@ export class VirtualDataMCP extends McpAgent {
 			async (args) => {
 				try {
 					const healthStatus = await EUOneAPIUtils.healthCheck(env);
-					
+
 					let statusText = `🏥 **MCP Server Health Check**\n\n`;
 					statusText += `✅ **Authentication**: ${healthStatus.status}\n`;
 					statusText += `🔑 **Token Status**: ${healthStatus.tokenStatus}\n`;
 					statusText += `⏰ **Token Expires**: ${healthStatus.tokenExpiry}\n`;
 					statusText += `🌐 **API Connectivity**: ${healthStatus.apiConnectivity}\n\n`;
-					
+
 					if (healthStatus.apiConnectivity === "OK") {
 						statusText += `🎯 **Overall Status**: All systems operational - ready for Claude Desktop use\n`;
 					} else {
 						statusText += `⚠️ **Overall Status**: Authentication OK but API connectivity issues detected\n`;
 					}
-					
+
 					return {
 						content: [
 							{
@@ -170,11 +195,7 @@ export class VirtualDataMCP extends McpAgent {
 				}
 			},
 		);
-		
 	}
-
-
-
 
 	private addProductListTool(env: EUOneEnvironment) {
 		// Unified product list tool with intelligent pagination
@@ -194,7 +215,8 @@ export class VirtualDataMCP extends McpAgent {
 					},
 					releaseStatus: {
 						type: "number",
-						description: "Filter by release status: 0=unpublished, 1=published (optional)",
+						description:
+							"Filter by release status: 0=unpublished, 1=published (optional)",
 					},
 					searchValue: {
 						type: "string",
@@ -202,10 +224,11 @@ export class VirtualDataMCP extends McpAgent {
 					},
 					pageSize: {
 						type: "number",
-						description: "Number of products per page, max 200 (default: 50). Use pageSize: 31 to get all your products.",
+						description:
+							"Number of products per page, max 200 (default: 50). Use pageSize: 31 to get all your products.",
 					},
 					pageNum: {
-						type: "number", 
+						type: "number",
 						description: "Page number starting from 1 (optional, default: 1)",
 					},
 				},
@@ -222,14 +245,19 @@ export class VirtualDataMCP extends McpAgent {
 					const MAX_PAGE_SIZE = 200; // API limit
 
 					// Apply intelligent page size optimization
-					const hasFilters = args && (args.productName || args.productKey || args.searchValue || typeof args.releaseStatus === "number");
+					const hasFilters =
+						args &&
+						(args.productName ||
+							args.productKey ||
+							args.searchValue ||
+							typeof args.releaseStatus === "number");
 					let pageSize = DEFAULT_PAGE_SIZE;
-					
+
 					// Use custom page size if provided, but respect API limits
 					if (args && typeof args.pageSize === "number") {
 						pageSize = Math.min(args.pageSize, MAX_PAGE_SIZE);
 					}
-					
+
 					// Build API options
 					const options = {
 						pageNum: 1, // Always start with first page for simplicity
@@ -251,74 +279,84 @@ export class VirtualDataMCP extends McpAgent {
 					);
 
 					// Use centralized token management from utils
-					const productData = await EUOneAPIUtils.safeAPICallWithTokenRefresh(env, async (token) => {
-						console.log("🔐 Using centralized token for product list");
+					const productData = await EUOneAPIUtils.safeAPICallWithTokenRefresh(
+						env,
+						async (token) => {
+							console.log("🔐 Using centralized token for product list");
 
-						const queryParams = new URLSearchParams();
-						queryParams.append("pageNum", String(options.pageNum));
-						queryParams.append("pageSize", String(options.pageSize));
-						
-						// FIX: Only pass pageNum and pageSize as per user specification
-						// Removed optional filters that may cause 403 errors
+							const queryParams = new URLSearchParams();
+							queryParams.append("pageNum", String(options.pageNum));
+							queryParams.append("pageSize", String(options.pageSize));
 
-						const apiUrl = `${env.BASE_URL}/v2/product/product/list?${queryParams.toString()}`;
-						console.log("📋 API URL:", apiUrl);
+							// FIX: Only pass pageNum and pageSize as per user specification
+							// Removed optional filters that may cause 403 errors
 
-						const apiResponse = await fetch(apiUrl, {
-							method: "GET",
-							headers: {
-								Authorization: token,  // FIX: Direct token, no "Bearer " prefix
-								"Accept-Language": "en-US",
-								"Content-Type": "application/json",
-							},
-						});
+							const apiUrl = `${env.BASE_URL}/v2/product/product/list?${queryParams.toString()}`;
+							console.log("📋 API URL:", apiUrl);
 
-						console.log("📡 API response status:", apiResponse.status);
-
-						if (!apiResponse.ok) {
-							const errorText = await apiResponse.text();
-							console.error("❌ API error response:", errorText);
-							throw new Error(
-								`API call failed: ${apiResponse.status} - ${errorText}`,
-							);
-						}
-
-						const result = (await apiResponse.json()) as any;
-						
-						// ===== COMPREHENSIVE API RESPONSE LOGGING =====
-						console.log("🔍 === COMPLETE PRODUCT LIST API RESPONSE ===");
-						console.log("📋 Full API Response (Pretty Print):");
-						console.log(JSON.stringify(result, null, 2));
-						console.log("🔢 Response Type:", typeof result);
-						console.log("📊 Response Keys:", result ? Object.keys(result) : "No keys");
-						console.log("📦 Data Structure Analysis:");
-						console.log("  - code:", result.code);
-						console.log("  - msg:", result.msg);
-						console.log("  - data type:", typeof result.data);
-						console.log("  - rows type:", typeof result.rows);
-						console.log("  - rows length:", result.rows?.length || "No rows");
-						console.log("  - total:", result.total);
-						
-						if (result.rows && Array.isArray(result.rows)) {
-							console.log("📋 Products Array Details:");
-							result.rows.forEach((product: any, index: number) => {
-								console.log(`  Product ${index + 1}:`);
-								console.log(`    - Keys: ${Object.keys(product)}`);
-								console.log(`    - Product Name: ${product.productName}`);
-								console.log(`    - Product Key: ${product.productKey}`);
-								console.log(`    - Product ID: ${product.productId}`);
-								console.log(`    - Full Product Data: ${JSON.stringify(product, null, 4)}`);
+							const apiResponse = await fetch(apiUrl, {
+								method: "GET",
+								headers: {
+									Authorization: token, // FIX: Direct token, no "Bearer " prefix
+									"Accept-Language": "en-US",
+									"Content-Type": "application/json",
+								},
 							});
-						}
-						console.log("🔍 === END COMPLETE API RESPONSE ===");
-						// ===== END COMPREHENSIVE LOGGING =====
 
-						if (result.code !== 200) {
-							throw new Error(`API call failed: ${result.msg || "Unknown error"}`);
-						}
+							console.log("📡 API response status:", apiResponse.status);
 
-						return result;
-					});
+							if (!apiResponse.ok) {
+								const errorText = await apiResponse.text();
+								console.error("❌ API error response:", errorText);
+								throw new Error(
+									`API call failed: ${apiResponse.status} - ${errorText}`,
+								);
+							}
+
+							const result = (await apiResponse.json()) as any;
+
+							// ===== COMPREHENSIVE API RESPONSE LOGGING =====
+							console.log("🔍 === COMPLETE PRODUCT LIST API RESPONSE ===");
+							console.log("📋 Full API Response (Pretty Print):");
+							console.log(JSON.stringify(result, null, 2));
+							console.log("🔢 Response Type:", typeof result);
+							console.log(
+								"📊 Response Keys:",
+								result ? Object.keys(result) : "No keys",
+							);
+							console.log("📦 Data Structure Analysis:");
+							console.log("  - code:", result.code);
+							console.log("  - msg:", result.msg);
+							console.log("  - data type:", typeof result.data);
+							console.log("  - rows type:", typeof result.rows);
+							console.log("  - rows length:", result.rows?.length || "No rows");
+							console.log("  - total:", result.total);
+
+							if (result.rows && Array.isArray(result.rows)) {
+								console.log("📋 Products Array Details:");
+								result.rows.forEach((product: any, index: number) => {
+									console.log(`  Product ${index + 1}:`);
+									console.log(`    - Keys: ${Object.keys(product)}`);
+									console.log(`    - Product Name: ${product.productName}`);
+									console.log(`    - Product Key: ${product.productKey}`);
+									console.log(`    - Product ID: ${product.productId}`);
+									console.log(
+										`    - Full Product Data: ${JSON.stringify(product, null, 4)}`,
+									);
+								});
+							}
+							console.log("🔍 === END COMPLETE API RESPONSE ===");
+							// ===== END COMPREHENSIVE LOGGING =====
+
+							if (result.code !== 200) {
+								throw new Error(
+									`API call failed: ${result.msg || "Unknown error"}`,
+								);
+							}
+
+							return result;
+						},
+					);
 
 					// Format the simplified response
 					const products = productData.rows || [];
@@ -345,29 +383,35 @@ export class VirtualDataMCP extends McpAgent {
 						products.forEach((product: any, index: number) => {
 							responseText += `${index + 1}. **${product.productName || "Unnamed Product"}**\n`;
 							responseText += `   📋 Product Key: \`${product.productKey || "N/A"}\`\n`;
-							responseText += `   🆔 Product ID: ${product.id || "N/A"}\n`;  // FIX: Use 'id' field
+							responseText += `   🆔 Product ID: ${product.id || "N/A"}\n`; // FIX: Use 'id' field
 							responseText += `   🏢 Vendor: ${product.vendorName || "N/A"} (ID: ${product.vendorId || "N/A"})\n`;
 							responseText += `   🏷️ Category: ${product.categoryName || "N/A"} - ${product.itemValue || "N/A"}\n`;
 							responseText += `   📊 Devices: ${product.deviceNum || 0}\n`;
 
 							// Status with emojis - FIX: releaseStatus = 2 means Published based on JSON
 							const statusEmoji = product.releaseStatus === 2 ? "✅" : "⏸️";
-							const statusText = product.releaseStatus === 2 ? "Published" : "Unpublished";
+							const statusText =
+								product.releaseStatus === 2 ? "Published" : "Unpublished";
 							responseText += `   ${statusEmoji} Status: ${statusText}\n`;
 
 							// Access type - enhanced mapping
 							const getAccessType = (type: number) => {
-								switch(type) {
-									case 0: return { emoji: "🌐", text: "Public" };
-									case 1: return { emoji: "🔒", text: "Private" };
-									case 2: return { emoji: "🏢", text: "Enterprise" };
-									default: return { emoji: "❓", text: "Unknown" };
+								switch (type) {
+									case 0:
+										return { emoji: "🌐", text: "Public" };
+									case 1:
+										return { emoji: "🔒", text: "Private" };
+									case 2:
+										return { emoji: "🏢", text: "Enterprise" };
+									default:
+										return { emoji: "❓", text: "Unknown" };
 								}
 							};
 							const access = getAccessType(product.accessType);
 							responseText += `   ${access.emoji} Access: ${access.text}\n`;
 
-							if (product.tsCreateTime) {  // FIX: Use 'tsCreateTime' field
+							if (product.tsCreateTime) {
+								// FIX: Use 'tsCreateTime' field
 								responseText += `   📅 Created: ${this.formatTimestamp(product.tsCreateTime)}\n`;
 							}
 
@@ -410,30 +454,111 @@ export class VirtualDataMCP extends McpAgent {
 		);
 	}
 
-
-
 	private addDeviceListTool(env: EUOneEnvironment) {
 		this.server.tool(
 			"get_device_list",
 			{
-				pageNum: z.number().optional().describe("Page number starting from 1 (optional, default: 1)"),
-				pageSize: z.number().optional().describe("Number of devices per page, max 1000 (optional, default: 10)"),
-				productId: z.number().optional().describe("Product ID to filter devices (optional, e.g., 2989)"),
-				deviceKey: z.string().optional().describe("Device key to filter by specific device (optional)"),
-				deviceName: z.string().optional().describe("Device name to filter by device name (optional)"),
-				deviceQueryKey: z.string().optional().describe("Search by device key, name, or SN (optional)"),
-				activationStatus: z.number().optional().describe("Activation status: 0=not activated, 1=activated (optional, default: 1)"),
-				onlineStatus: z.number().optional().describe("Online status: 0=offline, 1=online (optional)"),
-				runningStatus: z.number().optional().describe("Running status: 1=normal, 2=alarm, 3=fault, 4=fault+alarm (optional)"),
-				accessType: z.number().optional().describe("Device type: 0=direct device, 1=gateway, 2=gateway sub-device (optional)"),
-				productKey: z.string().optional().describe("Product key to filter devices (optional, e.g., 'pe17Ez')"),
-				orgId: z.number().optional().describe("Organization ID to filter devices (optional)")
+				pageNum: z
+					.number()
+					.optional()
+					.describe("Page number starting from 1 (optional, default: 1)"),
+				pageSize: z
+					.number()
+					.optional()
+					.describe(
+						"Number of devices per page, max 1000 (optional, default: 10)",
+					),
+				productId: z
+					.number()
+					.optional()
+					.describe("Product ID to filter devices (optional, e.g., 2989)"),
+				deviceKey: z
+					.string()
+					.optional()
+					.describe("Device key to filter by specific device (optional)"),
+				deviceName: z
+					.string()
+					.optional()
+					.describe("Device name to filter by device name (optional)"),
+				deviceQueryKey: z
+					.string()
+					.optional()
+					.describe("Search by device key, name, or SN (optional)"),
+				activationStatus: z
+					.number()
+					.optional()
+					.describe(
+						"Activation status: 0=not activated, 1=activated (optional, default: 1)",
+					),
+				onlineStatus: z
+					.number()
+					.optional()
+					.describe("Online status: 0=offline, 1=online (optional)"),
+				runningStatus: z
+					.number()
+					.optional()
+					.describe(
+						"Running status: 1=normal, 2=alarm, 3=fault, 4=fault+alarm (optional)",
+					),
+				accessType: z
+					.number()
+					.optional()
+					.describe(
+						"Device type: 0=direct device, 1=gateway, 2=gateway sub-device (optional)",
+					),
+				productKey: z
+					.string()
+					.optional()
+					.describe("Product key to filter devices (optional, e.g., 'pe17Ez')"),
+				orgId: z
+					.number()
+					.optional()
+					.describe("Organization ID to filter devices (optional)"),
 			},
-			async ({ pageNum, pageSize, productId, deviceKey, deviceName, deviceQueryKey, activationStatus, onlineStatus, runningStatus, accessType, productKey, orgId }) => {
-				console.log("🔥 get_device_list function ENTRY - parameters:", { pageNum, pageSize, productId, deviceKey, deviceName, deviceQueryKey, activationStatus, onlineStatus, runningStatus, accessType, productKey, orgId });
-				
+			async ({
+				pageNum,
+				pageSize,
+				productId,
+				deviceKey,
+				deviceName,
+				deviceQueryKey,
+				activationStatus,
+				onlineStatus,
+				runningStatus,
+				accessType,
+				productKey,
+				orgId,
+			}) => {
+				console.log("🔥 get_device_list function ENTRY - parameters:", {
+					pageNum,
+					pageSize,
+					productId,
+					deviceKey,
+					deviceName,
+					deviceQueryKey,
+					activationStatus,
+					onlineStatus,
+					runningStatus,
+					accessType,
+					productKey,
+					orgId,
+				});
+
 				try {
-					console.log("🚀 get_device_list called with parameters:", { pageNum, pageSize, productId, deviceKey, deviceName, deviceQueryKey, activationStatus, onlineStatus, runningStatus, accessType, productKey, orgId });
+					console.log("🚀 get_device_list called with parameters:", {
+						pageNum,
+						pageSize,
+						productId,
+						deviceKey,
+						deviceName,
+						deviceQueryKey,
+						activationStatus,
+						onlineStatus,
+						runningStatus,
+						accessType,
+						productKey,
+						orgId,
+					});
 
 					// Call the API
 					const deviceListData = await EUOneAPIUtils.getDeviceList(env, {
@@ -448,14 +573,20 @@ export class VirtualDataMCP extends McpAgent {
 						runningStatus,
 						accessType,
 						productKey,
-						orgId
+						orgId,
 					});
 
 					// Format the response
 					const devices = deviceListData.rows || [];
 					const total = deviceListData.total || 0;
-					
-					console.log("✅ Successfully retrieved", devices.length, "devices out of", total, "total");
+
+					console.log(
+						"✅ Successfully retrieved",
+						devices.length,
+						"devices out of",
+						total,
+						"total",
+					);
 
 					let responseText = `📱 **Device List**\n`;
 					responseText += `Found ${devices.length} devices (Total: ${total})\n`;
@@ -476,30 +607,39 @@ export class VirtualDataMCP extends McpAgent {
 
 							// Status indicators
 							const onlineEmoji = device.onlineStatus === 1 ? "🟢" : "🔴";
-							const onlineText = device.onlineStatus === 1 ? "Online" : "Offline";
+							const onlineText =
+								device.onlineStatus === 1 ? "Online" : "Offline";
 							responseText += `   ${onlineEmoji} Status: ${onlineText}\n`;
 
-							const activationEmoji = device.activationStatus === 1 ? "✅" : "⏸️";
-							const activationText = device.activationStatus === 1 ? "Activated" : "Not Activated";
+							const activationEmoji =
+								device.activationStatus === 1 ? "✅" : "⏸️";
+							const activationText =
+								device.activationStatus === 1 ? "Activated" : "Not Activated";
 							responseText += `   ${activationEmoji} Activation: ${activationText}\n`;
 
 							// Running status
-							const runningStatusMap: Record<number, { emoji: string; text: string }> = {
+							const runningStatusMap: Record<
+								number,
+								{ emoji: string; text: string }
+							> = {
 								1: { emoji: "✅", text: "Normal" },
 								2: { emoji: "⚠️", text: "Alarm" },
 								3: { emoji: "❌", text: "Fault" },
-								4: { emoji: "🚨", text: "Fault+Alarm" }
+								4: { emoji: "🚨", text: "Fault+Alarm" },
 							};
-							const runningInfo = runningStatusMap[device.runningStatus as number] || { emoji: "❓", text: "Unknown" };
+							const runningInfo = runningStatusMap[
+								device.runningStatus as number
+							] || { emoji: "❓", text: "Unknown" };
 							responseText += `   ${runningInfo.emoji} Running: ${runningInfo.text}\n`;
 
 							// Device type
 							const accessTypeMap: Record<number, string> = {
 								0: "📡 Direct Device",
-								1: "🌐 Gateway",  
-								2: "📟 Gateway Sub-device"
+								1: "🌐 Gateway",
+								2: "📟 Gateway Sub-device",
 							};
-							const deviceType = accessTypeMap[device.accessType as number] || "❓ Unknown";
+							const deviceType =
+								accessTypeMap[device.accessType as number] || "❓ Unknown";
 							responseText += `   ${deviceType}\n`;
 
 							// Network type
@@ -507,9 +647,10 @@ export class VirtualDataMCP extends McpAgent {
 								1: "📶 WiFi",
 								2: "📱 Cellular",
 								3: "📡 NB-IoT",
-								4: "🔗 Other"
+								4: "🔗 Other",
 							};
-							const netType = netWayMap[device.netWay as number] || "❓ Unknown";
+							const netType =
+								netWayMap[device.netWay as number] || "❓ Unknown";
 							responseText += `   ${netType}\n`;
 
 							// Timestamps
@@ -534,7 +675,7 @@ export class VirtualDataMCP extends McpAgent {
 							if (device.prop && Object.keys(device.prop).length > 0) {
 								responseText += `   📊 **Current Data**:\n`;
 								Object.entries(device.prop).forEach(([key, value]) => {
-									if (typeof value === 'object' && value !== null) {
+									if (typeof value === "object" && value !== null) {
 										responseText += `     • ${key}: ${JSON.stringify(value)}\n`;
 									} else {
 										responseText += `     • ${key}: ${value}\n`;
@@ -585,29 +726,60 @@ export class VirtualDataMCP extends McpAgent {
 		this.server.tool(
 			"get_product_tsl",
 			{
-				productKey: z.string().describe("Product key to get TSL properties for (required, e.g., 'pe17Ez' from get_product_list)"),
-				labelId: z.number().optional().describe("Label ID to filter properties by (optional)"),
-				propCode: z.string().optional().describe("Property code to filter by specific property (optional)"),
-				propName: z.string().optional().describe("Property name to filter by specific property name (optional)")
+				productKey: z
+					.string()
+					.describe(
+						"Product key to get TSL properties for (required, e.g., 'pe17Ez' from get_product_list)",
+					),
+				labelId: z
+					.number()
+					.optional()
+					.describe("Label ID to filter properties by (optional)"),
+				propCode: z
+					.string()
+					.optional()
+					.describe("Property code to filter by specific property (optional)"),
+				propName: z
+					.string()
+					.optional()
+					.describe(
+						"Property name to filter by specific property name (optional)",
+					),
 			},
 			async ({ productKey, labelId, propCode, propName }) => {
-				console.log("🔥 get_product_tsl function ENTRY - parameters:", { productKey, labelId, propCode, propName });
-				
+				console.log("🔥 get_product_tsl function ENTRY - parameters:", {
+					productKey,
+					labelId,
+					propCode,
+					propName,
+				});
+
 				try {
-					console.log("🚀 get_product_tsl called with parameters:", { productKey, labelId, propCode, propName });
+					console.log("🚀 get_product_tsl called with parameters:", {
+						productKey,
+						labelId,
+						propCode,
+						propName,
+					});
 
 					// Parameter validation
-					if (!productKey || typeof productKey !== "string" || productKey.trim() === "") {
-						throw new Error("productKey is required and must be a non-empty string");
+					if (
+						!productKey ||
+						typeof productKey !== "string" ||
+						productKey.trim() === ""
+					) {
+						throw new Error(
+							"productKey is required and must be a non-empty string",
+						);
 					}
 
 					const validProductKey = productKey.trim();
 
-					console.log("✅ Using validated parameters:", { 
-						productKey: validProductKey, 
+					console.log("✅ Using validated parameters:", {
+						productKey: validProductKey,
 						labelId,
 						propCode,
-						propName
+						propName,
 					});
 
 					// Call the API using the new getProductTsl method
@@ -615,14 +787,14 @@ export class VirtualDataMCP extends McpAgent {
 						productKey: validProductKey,
 						labelId,
 						propCode,
-						propName
+						propName,
 					});
 
 					console.log("✅ Product TSL data retrieved successfully");
 
 					// Format the response
 					const tslProperties = tslResult.data || [];
-					
+
 					let responseText = `📋 **Product TSL Properties**\n`;
 					responseText += `Product Key: \`${validProductKey}\`\n`;
 					responseText += `Found ${tslProperties.length} properties\n`;
@@ -638,7 +810,7 @@ export class VirtualDataMCP extends McpAgent {
 							responseText += `   📊 Data Type: ${prop.dataType || "N/A"}\n`;
 							responseText += `   🔧 Type: ${prop.type || "N/A"}\n`;
 							responseText += `   📝 Sub Type: ${prop.subType || "N/A"}\n`;
-							
+
 							if (prop.desc) {
 								responseText += `   📖 Description: ${prop.desc}\n`;
 							}
@@ -646,7 +818,7 @@ export class VirtualDataMCP extends McpAgent {
 							// Control and display settings
 							const controlEmoji = prop.enableControl ? "✅" : "❌";
 							responseText += `   ${controlEmoji} Controllable: ${prop.enableControl ? "Yes" : "No"}\n`;
-							
+
 							const displayEmoji = prop.display ? "👁️" : "🚫";
 							responseText += `   ${displayEmoji} Display: ${prop.display ? "Yes" : "No"}\n`;
 
@@ -655,7 +827,11 @@ export class VirtualDataMCP extends McpAgent {
 							}
 
 							// Specs information
-							if (prop.specs && Array.isArray(prop.specs) && prop.specs.length > 0) {
+							if (
+								prop.specs &&
+								Array.isArray(prop.specs) &&
+								prop.specs.length > 0
+							) {
 								responseText += `   📐 **Specifications:**\n`;
 								prop.specs.forEach((spec: any, specIndex: number) => {
 									if (spec.name) {
@@ -680,7 +856,11 @@ export class VirtualDataMCP extends McpAgent {
 										responseText += `        • Value: ${spec.value}\n`;
 									}
 									// Handle nested specs (like RGB color components)
-									if (spec.specs && Array.isArray(spec.specs) && spec.specs.length > 0) {
+									if (
+										spec.specs &&
+										Array.isArray(spec.specs) &&
+										spec.specs.length > 0
+									) {
 										responseText += `        • Sub-specs: ${spec.specs.length} items\n`;
 										spec.specs.forEach((subSpec: any, subIndex: number) => {
 											if (subSpec.min !== null && subSpec.max !== null) {
@@ -736,13 +916,21 @@ export class VirtualDataMCP extends McpAgent {
 			"get_device_location",
 			"Get device location information including GPS coordinates, address, and positioning details",
 			{
-				deviceId: z.number().describe("Device ID to get location information for (required, e.g., 9644)")
+				deviceId: z
+					.number()
+					.describe(
+						"Device ID to get location information for (required, e.g., 9644)",
+					),
 			},
 			async ({ deviceId }) => {
-				console.log("🔥 get_device_location function ENTRY - parameters:", { deviceId });
-				
+				console.log("🔥 get_device_location function ENTRY - parameters:", {
+					deviceId,
+				});
+
 				try {
-					console.log("🚀 get_device_location called with parameters:", { deviceId });
+					console.log("🚀 get_device_location called with parameters:", {
+						deviceId,
+					});
 
 					// Parameter validation
 					if (!deviceId || typeof deviceId !== "number") {
@@ -753,14 +941,14 @@ export class VirtualDataMCP extends McpAgent {
 
 					// Call the API using the new getDeviceLocation method
 					const locationResult = await EUOneAPIUtils.getDeviceLocation(env, {
-						deviceId
+						deviceId,
 					});
 
 					console.log("✅ Device location data retrieved successfully");
 
 					// Format the response
 					const locationData = locationResult.data;
-					
+
 					if (!locationData) {
 						return {
 							content: [
@@ -771,7 +959,7 @@ export class VirtualDataMCP extends McpAgent {
 							],
 						};
 					}
-					
+
 					let responseText = `📍 **Device Location Information**\n`;
 					responseText += `Device ID: \`${locationData.deviceId || deviceId}\`\n`;
 					responseText += `Device Name: \`${locationData.deviceName || "N/A"}\`\n`;
@@ -783,7 +971,7 @@ export class VirtualDataMCP extends McpAgent {
 					responseText += `📡 **Positioning Information**\n`;
 					responseText += `   🔧 Locate Mode: ${locationData.locateMode || "N/A"}\n`;
 					responseText += `   📊 Locate Type: ${locationData.locateType || "N/A"} (${locationData.locateTypeStr || "N/A"})\n`;
-					
+
 					if (locationData.tsLocateTime) {
 						responseText += `   ⏰ Last Location Time: ${this.formatTimestamp(locationData.tsLocateTime)}\n`;
 					}
@@ -816,7 +1004,8 @@ export class VirtualDataMCP extends McpAgent {
 
 					// Device Status
 					responseText += `📱 **Device Status**\n`;
-					const onlineStatus = locationData.onlineStatus === 1 ? "🟢 Online" : "🔴 Offline";
+					const onlineStatus =
+						locationData.onlineStatus === 1 ? "🟢 Online" : "🔴 Offline";
 					responseText += `   📶 Online Status: ${onlineStatus}\n`;
 					responseText += `\n`;
 
@@ -825,7 +1014,10 @@ export class VirtualDataMCP extends McpAgent {
 					if (locationData.hdop !== null && locationData.hdop !== undefined) {
 						technicalDetails.push(`HDOP: ${locationData.hdop}`);
 					}
-					if (locationData.satellites !== null && locationData.satellites !== undefined) {
+					if (
+						locationData.satellites !== null &&
+						locationData.satellites !== undefined
+					) {
 						technicalDetails.push(`Satellites: ${locationData.satellites}`);
 					}
 					if (locationData.soc !== null && locationData.soc !== undefined) {
@@ -834,16 +1026,22 @@ export class VirtualDataMCP extends McpAgent {
 					if (locationData.speed !== null && locationData.speed !== undefined) {
 						technicalDetails.push(`Speed: ${locationData.speed}`);
 					}
-					if (locationData.height !== null && locationData.height !== undefined) {
+					if (
+						locationData.height !== null &&
+						locationData.height !== undefined
+					) {
 						technicalDetails.push(`Height: ${locationData.height}`);
 					}
-					if (locationData.ggaStatus !== null && locationData.ggaStatus !== undefined) {
+					if (
+						locationData.ggaStatus !== null &&
+						locationData.ggaStatus !== undefined
+					) {
 						technicalDetails.push(`GGA Status: ${locationData.ggaStatus}`);
 					}
 
 					if (technicalDetails.length > 0) {
 						responseText += `🔧 **Technical Details**\n`;
-						technicalDetails.forEach(detail => {
+						technicalDetails.forEach((detail) => {
 							responseText += `   • ${detail}\n`;
 						});
 						responseText += `\n`;
@@ -912,29 +1110,102 @@ export class VirtualDataMCP extends McpAgent {
 			"set_device_location",
 			"Set/update device location information with coordinates, address, and positioning details",
 			{
-				deviceId: z.number().describe("Device ID to set location for (required, e.g., 10997)"),
-				coordinate: z.string().describe("GPS coordinates in format 'longitude,latitude' (required, e.g., '2.6749045410156214,44.8198351640713')"),
-				locateMode: z.string().optional().describe("Location mode: 'REPORTING' (device reported) or 'MANUAL' (manually set) (optional, default: 'MANUAL')"),
-				coordinateSystem: z.string().optional().describe("Coordinate system: 'WGS84', 'GCJ02', 'BD09' (optional, default: 'WGS84')"),
-				address: z.string().optional().describe("Address description (optional, e.g., '6 Ldt Conilhergues, 12600 Brommat, France')"),
-				detailAddress: z.string().optional().describe("Detailed address description (optional)"),
-				localPhoto: z.string().optional().describe("Local photo URL or base64 string (optional)"),
-				mountId: z.number().optional().describe("Mount point ID for installation location (optional)"),
-				locateType: z.number().optional().describe("Location type: 0=GNSS, 1=LBS, 2=Manual, 3=WiFi (optional)"),
-				adCode: z.string().optional().describe("Administrative area code (optional)"),
-				ggaStatus: z.number().optional().describe("GGA status for GPS quality (0-9, optional)"),
+				deviceId: z
+					.number()
+					.describe("Device ID to set location for (required, e.g., 10997)"),
+				coordinate: z
+					.string()
+					.describe(
+						"GPS coordinates in format 'longitude,latitude' (required, e.g., '2.6749045410156214,44.8198351640713')",
+					),
+				locateMode: z
+					.string()
+					.optional()
+					.describe(
+						"Location mode: 'REPORTING' (device reported) or 'MANUAL' (manually set) (optional, default: 'MANUAL')",
+					),
+				coordinateSystem: z
+					.string()
+					.optional()
+					.describe(
+						"Coordinate system: 'WGS84', 'GCJ02', 'BD09' (optional, default: 'WGS84')",
+					),
+				address: z
+					.string()
+					.optional()
+					.describe(
+						"Address description (optional, e.g., '6 Ldt Conilhergues, 12600 Brommat, France')",
+					),
+				detailAddress: z
+					.string()
+					.optional()
+					.describe("Detailed address description (optional)"),
+				localPhoto: z
+					.string()
+					.optional()
+					.describe("Local photo URL or base64 string (optional)"),
+				mountId: z
+					.number()
+					.optional()
+					.describe("Mount point ID for installation location (optional)"),
+				locateType: z
+					.number()
+					.optional()
+					.describe(
+						"Location type: 0=GNSS, 1=LBS, 2=Manual, 3=WiFi (optional)",
+					),
+				adCode: z
+					.string()
+					.optional()
+					.describe("Administrative area code (optional)"),
+				ggaStatus: z
+					.number()
+					.optional()
+					.describe("GGA status for GPS quality (0-9, optional)"),
 				height: z.number().optional().describe("Altitude in meters (optional)"),
-				speed: z.number().optional().describe("Ground speed in knots (optional)")
+				speed: z
+					.number()
+					.optional()
+					.describe("Ground speed in knots (optional)"),
 			},
-			async ({ deviceId, coordinate, locateMode, coordinateSystem, address, detailAddress, localPhoto, mountId, locateType, adCode, ggaStatus, height, speed }) => {
-				console.log("🔥 set_device_location function ENTRY - parameters:", { 
-					deviceId, coordinate, locateMode, coordinateSystem, address, detailAddress, 
-					localPhoto, mountId, locateType, adCode, ggaStatus, height, speed 
+			async ({
+				deviceId,
+				coordinate,
+				locateMode,
+				coordinateSystem,
+				address,
+				detailAddress,
+				localPhoto,
+				mountId,
+				locateType,
+				adCode,
+				ggaStatus,
+				height,
+				speed,
+			}) => {
+				console.log("🔥 set_device_location function ENTRY - parameters:", {
+					deviceId,
+					coordinate,
+					locateMode,
+					coordinateSystem,
+					address,
+					detailAddress,
+					localPhoto,
+					mountId,
+					locateType,
+					adCode,
+					ggaStatus,
+					height,
+					speed,
 				});
-				
+
 				try {
-					console.log("🚀 set_device_location called with parameters:", { 
-						deviceId, coordinate, locateMode, coordinateSystem, address 
+					console.log("🚀 set_device_location called with parameters:", {
+						deviceId,
+						coordinate,
+						locateMode,
+						coordinateSystem,
+						address,
 					});
 
 					// Parameter validation
@@ -942,14 +1213,22 @@ export class VirtualDataMCP extends McpAgent {
 						throw new Error("deviceId is required and must be a number");
 					}
 
-					if (!coordinate || typeof coordinate !== "string" || coordinate.trim() === "") {
-						throw new Error("coordinate is required and must be a non-empty string in format 'longitude,latitude'");
+					if (
+						!coordinate ||
+						typeof coordinate !== "string" ||
+						coordinate.trim() === ""
+					) {
+						throw new Error(
+							"coordinate is required and must be a non-empty string in format 'longitude,latitude'",
+						);
 					}
 
 					// Validate coordinate format (should be "longitude,latitude")
 					const coordParts = coordinate.trim().split(",");
 					if (coordParts.length !== 2) {
-						throw new Error("coordinate must be in format 'longitude,latitude' (e.g., '2.6749045410156214,44.8198351640713')");
+						throw new Error(
+							"coordinate must be in format 'longitude,latitude' (e.g., '2.6749045410156214,44.8198351640713')",
+						);
 					}
 
 					const [lng, lat] = coordParts;
@@ -957,11 +1236,11 @@ export class VirtualDataMCP extends McpAgent {
 						throw new Error("coordinate values must be valid numbers");
 					}
 
-					console.log("✅ Using validated parameters:", { 
-						deviceId, 
+					console.log("✅ Using validated parameters:", {
+						deviceId,
 						coordinate: coordinate.trim(),
 						locateMode: locateMode || "MANUAL",
-						coordinateSystem: coordinateSystem || "WGS84"
+						coordinateSystem: coordinateSystem || "WGS84",
 					});
 
 					// Call the API using the new setDeviceLocation method
@@ -978,7 +1257,7 @@ export class VirtualDataMCP extends McpAgent {
 						adCode,
 						ggaStatus,
 						height,
-						speed
+						speed,
 					});
 
 					console.log("✅ Device location set successfully");
@@ -1003,7 +1282,8 @@ export class VirtualDataMCP extends McpAgent {
 						responseText += `   🏔️ Mount ID: ${mountId}\n`;
 					}
 					if (locateType !== undefined) {
-						const locateTypeStr = ["GNSS", "LBS", "Manual", "WiFi"][locateType] || "Unknown";
+						const locateTypeStr =
+							["GNSS", "LBS", "Manual", "WiFi"][locateType] || "Unknown";
 						responseText += `   📡 Location Type: ${locateType} (${locateTypeStr})\n`;
 					}
 					if (height !== undefined) {
@@ -1060,13 +1340,21 @@ export class VirtualDataMCP extends McpAgent {
 			"get_device_details",
 			"Get comprehensive device information including basic details, status, configuration, and extended attributes",
 			{
-				deviceId: z.number().describe("Device ID to get detailed information for (required, e.g., 10997)")
+				deviceId: z
+					.number()
+					.describe(
+						"Device ID to get detailed information for (required, e.g., 10997)",
+					),
 			},
 			async ({ deviceId }) => {
-				console.log("🔥 get_device_details function ENTRY - parameters:", { deviceId });
-				
+				console.log("🔥 get_device_details function ENTRY - parameters:", {
+					deviceId,
+				});
+
 				try {
-					console.log("🚀 get_device_details called with parameters:", { deviceId });
+					console.log("🚀 get_device_details called with parameters:", {
+						deviceId,
+					});
 
 					// Parameter validation
 					if (!deviceId || typeof deviceId !== "number") {
@@ -1077,14 +1365,14 @@ export class VirtualDataMCP extends McpAgent {
 
 					// Call the API using the new getDeviceDetails method
 					const detailsResult = await EUOneAPIUtils.getDeviceDetails(env, {
-						deviceId
+						deviceId,
 					});
 
 					console.log("✅ Device details data retrieved successfully");
 
 					// Format the response
 					const deviceData = detailsResult.data;
-					
+
 					if (!deviceData) {
 						return {
 							content: [
@@ -1095,7 +1383,7 @@ export class VirtualDataMCP extends McpAgent {
 							],
 						};
 					}
-					
+
 					let responseText = `📱 **Device Details Information**\n`;
 					responseText += `Device ID: \`${deviceData.deviceId || deviceId}\`\n`;
 					responseText += `Device Name: \`${deviceData.deviceName || "N/A"}\`\n`;
@@ -1116,20 +1404,28 @@ export class VirtualDataMCP extends McpAgent {
 
 					// Device Status
 					responseText += `📊 **Device Status**\n`;
-					const onlineStatus = deviceData.onlineStatus === 1 ? "🟢 Online" : "🔴 Offline";
+					const onlineStatus =
+						deviceData.onlineStatus === 1 ? "🟢 Online" : "🔴 Offline";
 					responseText += `   📶 Online Status: ${onlineStatus}\n`;
-					
+
 					const runningStatusMap = {
 						1: "🟢 Normal",
-						2: "🟡 Alarm", 
+						2: "🟡 Alarm",
 						3: "🔴 Fault",
-						4: "🔴 Fault + Alarm"
+						4: "🔴 Fault + Alarm",
 					};
-					const runningStatus = runningStatusMap[deviceData.runningStatus as keyof typeof runningStatusMap] || `❓ Unknown (${deviceData.runningStatus})`;
+					const runningStatus =
+						runningStatusMap[
+							deviceData.runningStatus as keyof typeof runningStatusMap
+						] || `❓ Unknown (${deviceData.runningStatus})`;
 					responseText += `   ⚡ Running Status: ${runningStatus}\n`;
 
-					const activationStatus = deviceData.activationStatus === 1 ? "✅ Activated" : 
-											 deviceData.activationStatus === 0 ? "❌ Not Activated" : "❓ Unknown";
+					const activationStatus =
+						deviceData.activationStatus === 1
+							? "✅ Activated"
+							: deviceData.activationStatus === 0
+								? "❌ Not Activated"
+								: "❓ Unknown";
 					if (deviceData.activationStatus !== null) {
 						responseText += `   🎯 Activation Status: ${activationStatus}\n`;
 					}
@@ -1137,7 +1433,7 @@ export class VirtualDataMCP extends McpAgent {
 					if (deviceData.tsLastOnlineTime) {
 						responseText += `   ⏰ Last Online: ${this.formatTimestamp(deviceData.tsLastOnlineTime)}\n`;
 					}
-					
+
 					if (deviceData.tsActivationTime) {
 						responseText += `   🎯 Activation Time: ${this.formatTimestamp(deviceData.tsActivationTime)}\n`;
 					}
@@ -1151,19 +1447,24 @@ export class VirtualDataMCP extends McpAgent {
 					responseText += `🔧 **Device Configuration**\n`;
 					const accessTypeMap = {
 						0: "📱 Direct Device",
-						1: "🌐 Gateway Device", 
-						2: "📡 Gateway Sub-device"
+						1: "🌐 Gateway Device",
+						2: "📡 Gateway Sub-device",
 					};
-					const accessType = accessTypeMap[deviceData.accessType as keyof typeof accessTypeMap] || `❓ Unknown (${deviceData.accessType})`;
+					const accessType =
+						accessTypeMap[
+							deviceData.accessType as keyof typeof accessTypeMap
+						] || `❓ Unknown (${deviceData.accessType})`;
 					responseText += `   🔌 Access Type: ${accessType}\n`;
 
 					const netWayMap = {
 						1: "📶 WiFi",
 						2: "📡 Cellular",
 						3: "📻 NB-IoT",
-						4: "🔗 Other"
+						4: "🔗 Other",
 					};
-					const netWay = netWayMap[deviceData.netWay as keyof typeof netWayMap] || `❓ Unknown (${deviceData.netWay})`;
+					const netWay =
+						netWayMap[deviceData.netWay as keyof typeof netWayMap] ||
+						`❓ Unknown (${deviceData.netWay})`;
 					responseText += `   🌐 Network Type: ${netWay}\n`;
 
 					if (deviceData.modelSpec) {
@@ -1173,14 +1474,21 @@ export class VirtualDataMCP extends McpAgent {
 					const dataFormatMap = {
 						1: "🔤 Text",
 						2: "📊 JSON",
-						3: "🔢 Binary"
+						3: "🔢 Binary",
 					};
-					const dataFormat = dataFormatMap[deviceData.dataFormat as keyof typeof dataFormatMap] || `❓ Unknown (${deviceData.dataFormat})`;
+					const dataFormat =
+						dataFormatMap[
+							deviceData.dataFormat as keyof typeof dataFormatMap
+						] || `❓ Unknown (${deviceData.dataFormat})`;
 					responseText += `   📝 Data Format: ${dataFormat}\n`;
 					responseText += `\n`;
 
 					// Category and Item Information
-					if (deviceData.categoryName || deviceData.itemCode || deviceData.itemValue) {
+					if (
+						deviceData.categoryName ||
+						deviceData.itemCode ||
+						deviceData.itemValue
+					) {
 						responseText += `📂 **Category Information**\n`;
 						if (deviceData.categoryName) {
 							responseText += `   📁 Category: ${deviceData.categoryName}\n`;
@@ -1195,8 +1503,12 @@ export class VirtualDataMCP extends McpAgent {
 					}
 
 					// Network Signal Information
-					const hasNetworkInfo = deviceData.signalStrength !== null || deviceData.rsrp !== null || 
-										   deviceData.rsrq !== null || deviceData.iccid || deviceData.soc !== null;
+					const hasNetworkInfo =
+						deviceData.signalStrength !== null ||
+						deviceData.rsrp !== null ||
+						deviceData.rsrq !== null ||
+						deviceData.iccid ||
+						deviceData.soc !== null;
 					if (hasNetworkInfo) {
 						responseText += `📡 **Network & Signal Information**\n`;
 						if (deviceData.signalStrength !== null) {
@@ -1221,7 +1533,10 @@ export class VirtualDataMCP extends McpAgent {
 					}
 
 					// Alarms and Events
-					const hasAlarms = deviceData.alarmCode || deviceData.faultCode || deviceData.baseEventInfo;
+					const hasAlarms =
+						deviceData.alarmCode ||
+						deviceData.faultCode ||
+						deviceData.baseEventInfo;
 					if (hasAlarms) {
 						responseText += `⚠️ **Alarms & Events**\n`;
 						if (deviceData.alarmCode) {
@@ -1230,11 +1545,16 @@ export class VirtualDataMCP extends McpAgent {
 						if (deviceData.faultCode) {
 							responseText += `   ⚡ Fault Code: ${deviceData.faultCode}\n`;
 						}
-						if (deviceData.baseEventInfo && typeof deviceData.baseEventInfo === 'object') {
+						if (
+							deviceData.baseEventInfo &&
+							typeof deviceData.baseEventInfo === "object"
+						) {
 							responseText += `   📋 Event Info:\n`;
-							Object.entries(deviceData.baseEventInfo).forEach(([key, value]) => {
-								responseText += `     • ${key}: ${value}\n`;
-							});
+							Object.entries(deviceData.baseEventInfo).forEach(
+								([key, value]) => {
+									responseText += `     • ${key}: ${value}\n`;
+								},
+							);
 						}
 						responseText += `\n`;
 					}
@@ -1252,14 +1572,22 @@ export class VirtualDataMCP extends McpAgent {
 					}
 
 					// Extended Fields
-					if (deviceData.extFiledList && Array.isArray(deviceData.extFiledList) && deviceData.extFiledList.length > 0) {
+					if (
+						deviceData.extFiledList &&
+						Array.isArray(deviceData.extFiledList) &&
+						deviceData.extFiledList.length > 0
+					) {
 						responseText += `📋 **Extended Fields** (${deviceData.extFiledList.length} fields)\n`;
 						deviceData.extFiledList.forEach((field: any, index: number) => {
 							responseText += `   ${index + 1}. **${field.filedName || "Unnamed Field"}**\n`;
 							responseText += `      • Code: \`${field.filedCode || "N/A"}\`\n`;
 							responseText += `      • Value: ${field.filedValue || "N/A"}\n`;
 							if (field.dataType) {
-								const dataTypeMap: Record<number, string> = {1: "Text", 2: "Date", 3: "Enum"};
+								const dataTypeMap: Record<number, string> = {
+									1: "Text",
+									2: "Date",
+									3: "Enum",
+								};
 								responseText += `      • Type: ${dataTypeMap[field.dataType as keyof typeof dataTypeMap] || "Unknown"}\n`;
 							}
 							responseText += `      • Required: ${field.isRequired === 1 ? "Yes" : "No"}\n`;
@@ -1285,7 +1613,9 @@ export class VirtualDataMCP extends McpAgent {
 							responseText += `   ⌛ Expired Time: ${this.formatTimestamp(useInfo.expiredTime)}\n`;
 						}
 						if (useInfo.onlineDurationMs) {
-							const hours = Math.floor(useInfo.onlineDurationMs / (1000 * 60 * 60));
+							const hours = Math.floor(
+								useInfo.onlineDurationMs / (1000 * 60 * 60),
+							);
 							responseText += `   ⏱️ Online Duration: ${hours} hours\n`;
 						}
 						responseText += `\n`;
@@ -1300,12 +1630,16 @@ export class VirtualDataMCP extends McpAgent {
 						const checkResultMap: Record<string | number, string> = {
 							1: "Normal",
 							"-1": "Device not synced to SaaS",
-							"-2": "BindingCode validation failed"
+							"-2": "BindingCode validation failed",
 						};
-						additionalInfo.push(`Check Result: ${checkResultMap[deviceData.checkResult] || deviceData.checkResult}`);
+						additionalInfo.push(
+							`Check Result: ${checkResultMap[deviceData.checkResult] || deviceData.checkResult}`,
+						);
 					}
 					if (deviceData.isAiProduct !== undefined) {
-						additionalInfo.push(`AI Product: ${deviceData.isAiProduct ? "Yes" : "No"}`);
+						additionalInfo.push(
+							`AI Product: ${deviceData.isAiProduct ? "Yes" : "No"}`,
+						);
 					}
 					if (deviceData.qrCodeType) {
 						additionalInfo.push(`QR Code Type: ${deviceData.qrCodeType}`);
@@ -1316,7 +1650,7 @@ export class VirtualDataMCP extends McpAgent {
 
 					if (additionalInfo.length > 0) {
 						responseText += `ℹ️ **Additional Information**\n`;
-						additionalInfo.forEach(info => {
+						additionalInfo.forEach((info) => {
 							responseText += `   • ${info}\n`;
 						});
 						responseText += `\n`;
@@ -1359,14 +1693,27 @@ export class VirtualDataMCP extends McpAgent {
 		this.server.tool(
 			"get_product_details",
 			{
-				productId: z.number().describe("Product ID to get detailed information for (required, e.g., 2989)"),
-				vendorId: z.number().optional().describe("Vendor ID for the product (optional, e.g., 110)")
+				productId: z
+					.number()
+					.describe(
+						"Product ID to get detailed information for (required, e.g., 2989)",
+					),
+				vendorId: z
+					.number()
+					.optional()
+					.describe("Vendor ID for the product (optional, e.g., 110)"),
 			},
 			async ({ productId, vendorId }) => {
-				console.log("🔥 get_product_details function ENTRY - parameters:", { productId, vendorId });
-				
+				console.log("🔥 get_product_details function ENTRY - parameters:", {
+					productId,
+					vendorId,
+				});
+
 				try {
-					console.log("🚀 get_product_details called with parameters:", { productId, vendorId });
+					console.log("🚀 get_product_details called with parameters:", {
+						productId,
+						vendorId,
+					});
 
 					// Parameter validation
 					if (!productId || typeof productId !== "number") {
@@ -1376,14 +1723,14 @@ export class VirtualDataMCP extends McpAgent {
 					// Call the API using the new getProductInfo method
 					const productResult = await EUOneAPIUtils.getProductInfo(env, {
 						productId,
-						vendorId
+						vendorId,
 					});
 
 					console.log("✅ Product details data retrieved successfully");
 
 					// Format the response
 					const productData = productResult.data;
-					
+
 					if (!productData) {
 						return {
 							content: [
@@ -1394,7 +1741,7 @@ export class VirtualDataMCP extends McpAgent {
 							],
 						};
 					}
-					
+
 					let responseText = `📦 **Product Details Information**\n`;
 					responseText += `Product ID: \`${productData.id || productId}\`\n`;
 					responseText += `Product Name: \`${productData.productName || "N/A"}\`\n`;
@@ -1415,34 +1762,45 @@ export class VirtualDataMCP extends McpAgent {
 					responseText += `🔧 **Configuration**\n`;
 					const accessTypeMap = {
 						0: "📱 Direct Device",
-						1: "🌐 Gateway Device", 
-						2: "📡 Gateway Sub-device"
+						1: "🌐 Gateway Device",
+						2: "📡 Gateway Sub-device",
 					};
-					const accessType = accessTypeMap[productData.accessType as keyof typeof accessTypeMap] || `❓ Unknown (${productData.accessType})`;
+					const accessType =
+						accessTypeMap[
+							productData.accessType as keyof typeof accessTypeMap
+						] || `❓ Unknown (${productData.accessType})`;
 					responseText += `   🔌 Access Type: ${accessType}\n`;
 
 					const netWayMap = {
 						1: "📶 WiFi",
 						2: "📡 Cellular",
 						3: "📻 NB-IoT",
-						4: "🔗 Other"
+						4: "🔗 Other",
 					};
-					const netWay = netWayMap[productData.netWay as keyof typeof netWayMap] || `❓ Unknown (${productData.netWay})`;
+					const netWay =
+						netWayMap[productData.netWay as keyof typeof netWayMap] ||
+						`❓ Unknown (${productData.netWay})`;
 					responseText += `   🌐 Network Type: ${netWay}\n`;
 
 					const dataFormatMap = {
 						1: "🔤 Text",
 						2: "📊 JSON",
-						3: "🔢 Binary"
+						3: "🔢 Binary",
 					};
-					const dataFormat = dataFormatMap[productData.dataFormat as keyof typeof dataFormatMap] || `❓ Unknown (${productData.dataFormat})`;
+					const dataFormat =
+						dataFormatMap[
+							productData.dataFormat as keyof typeof dataFormatMap
+						] || `❓ Unknown (${productData.dataFormat})`;
 					responseText += `   📝 Data Format: ${dataFormat}\n`;
 
 					const gatewayTypeMap = {
 						0: "📱 Device",
-						1: "🌐 Gateway"
+						1: "🌐 Gateway",
 					};
-					const gatewayType = gatewayTypeMap[productData.gatewayType as keyof typeof gatewayTypeMap] || `❓ Unknown (${productData.gatewayType})`;
+					const gatewayType =
+						gatewayTypeMap[
+							productData.gatewayType as keyof typeof gatewayTypeMap
+						] || `❓ Unknown (${productData.gatewayType})`;
 					responseText += `   🏗️ Gateway Type: ${gatewayType}\n`;
 					responseText += `\n`;
 
@@ -1451,9 +1809,12 @@ export class VirtualDataMCP extends McpAgent {
 					const releaseStatusMap = {
 						0: "❌ Unpublished",
 						1: "✅ Published",
-						2: "✅ Published"
+						2: "✅ Published",
 					};
-					const releaseStatus = releaseStatusMap[productData.releaseStatus as keyof typeof releaseStatusMap] || `❓ Unknown (${productData.releaseStatus})`;
+					const releaseStatus =
+						releaseStatusMap[
+							productData.releaseStatus as keyof typeof releaseStatusMap
+						] || `❓ Unknown (${productData.releaseStatus})`;
 					responseText += `   📈 Release Status: ${releaseStatus}\n`;
 					responseText += `\n`;
 
@@ -1468,16 +1829,25 @@ export class VirtualDataMCP extends McpAgent {
 					responseText += `💾 **Storage & Data**\n`;
 					responseText += `   📦 Store Size: ${productData.storeSize || "N/A"} ${productData.storeUnit || ""}\n`;
 					responseText += `   ⏳ Storage Duration: ${productData.storageDuration || "N/A"} days\n`;
-					if (productData.historyDataAddSize !== null && productData.historyDataAddSize !== undefined) {
+					if (
+						productData.historyDataAddSize !== null &&
+						productData.historyDataAddSize !== undefined
+					) {
 						responseText += `   📈 History Data Size: ${productData.historyDataAddSize} bytes\n`;
 					}
-					if (productData.yesterdayDataSize !== null && productData.yesterdayDataSize !== undefined) {
+					if (
+						productData.yesterdayDataSize !== null &&
+						productData.yesterdayDataSize !== undefined
+					) {
 						responseText += `   📊 Yesterday Data Size: ${productData.yesterdayDataSize} bytes\n`;
 					}
 					responseText += `\n`;
 
 					// Queue Information
-					const hasQueueInfo = productData.queueId || productData.queueName || productData.queueStatus !== undefined;
+					const hasQueueInfo =
+						productData.queueId ||
+						productData.queueName ||
+						productData.queueStatus !== undefined;
 					if (hasQueueInfo) {
 						responseText += `📬 **Queue Information**\n`;
 						if (productData.queueId) {
@@ -1489,9 +1859,12 @@ export class VirtualDataMCP extends McpAgent {
 						if (productData.queueStatus !== undefined) {
 							const queueStatusMap = {
 								0: "❌ Inactive",
-								1: "✅ Active"
+								1: "✅ Active",
 							};
-							const queueStatus = queueStatusMap[productData.queueStatus as keyof typeof queueStatusMap] || `❓ Unknown (${productData.queueStatus})`;
+							const queueStatus =
+								queueStatusMap[
+									productData.queueStatus as keyof typeof queueStatusMap
+								] || `❓ Unknown (${productData.queueStatus})`;
 							responseText += `   📊 Queue Status: ${queueStatus}\n`;
 						}
 						responseText += `\n`;
@@ -1499,8 +1872,13 @@ export class VirtualDataMCP extends McpAgent {
 
 					// Additional Information
 					const additionalInfo = [];
-					if (productData.connProtocol !== null && productData.connProtocol !== undefined) {
-						additionalInfo.push(`Connection Protocol: ${productData.connProtocol}`);
+					if (
+						productData.connProtocol !== null &&
+						productData.connProtocol !== undefined
+					) {
+						additionalInfo.push(
+							`Connection Protocol: ${productData.connProtocol}`,
+						);
 					}
 					if (productData.fileUrl) {
 						additionalInfo.push(`File URL: ${productData.fileUrl}`);
@@ -1508,13 +1886,16 @@ export class VirtualDataMCP extends McpAgent {
 					if (productData.subscribeId) {
 						additionalInfo.push(`Subscribe ID: ${productData.subscribeId}`);
 					}
-					if (productData.qrCodeType !== null && productData.qrCodeType !== undefined) {
+					if (
+						productData.qrCodeType !== null &&
+						productData.qrCodeType !== undefined
+					) {
 						additionalInfo.push(`QR Code Type: ${productData.qrCodeType}`);
 					}
 
 					if (additionalInfo.length > 0) {
 						responseText += `ℹ️ **Additional Information**\n`;
-						additionalInfo.forEach(info => {
+						additionalInfo.forEach((info) => {
 							responseText += `   • ${info}\n`;
 						});
 						responseText += `\n`;
@@ -1557,23 +1938,75 @@ export class VirtualDataMCP extends McpAgent {
 		this.server.tool(
 			"get_device_properties",
 			{
-				deviceId: z.number().describe("Device ID to get TSL properties for (required, e.g., 10997)"),
-				showHide: z.boolean().optional().describe("Whether to show hidden labels: true=show all, false=hide hidden labels (optional, default: true)"),
-				filterDisplay: z.boolean().optional().describe("Whether to filter display properties (optional, default: true)"),
-				propCode: z.string().optional().describe("Filter by specific property code (optional)"),
-				propName: z.string().optional().describe("Filter by specific property name (optional)"),
-				tslSubType: z.enum(["ALL", "WRITEABLE", "READABLE"]).optional().describe("TSL read/write type filter (optional): ALL=all properties, WRITEABLE=writable properties, READABLE=readable properties"),
-				displayControl: z.boolean().optional().describe("Filter by display control flag (optional)"),
-				enableControl: z.boolean().optional().describe("Filter by enable control flag (optional)")
+				deviceId: z
+					.number()
+					.describe(
+						"Device ID to get TSL properties for (required, e.g., 10997)",
+					),
+				showHide: z
+					.boolean()
+					.optional()
+					.describe(
+						"Whether to show hidden labels: true=show all, false=hide hidden labels (optional, default: true)",
+					),
+				filterDisplay: z
+					.boolean()
+					.optional()
+					.describe(
+						"Whether to filter display properties (optional, default: true)",
+					),
+				propCode: z
+					.string()
+					.optional()
+					.describe("Filter by specific property code (optional)"),
+				propName: z
+					.string()
+					.optional()
+					.describe("Filter by specific property name (optional)"),
+				tslSubType: z
+					.enum(["ALL", "WRITEABLE", "READABLE"])
+					.optional()
+					.describe(
+						"TSL read/write type filter (optional): ALL=all properties, WRITEABLE=writable properties, READABLE=readable properties",
+					),
+				displayControl: z
+					.boolean()
+					.optional()
+					.describe("Filter by display control flag (optional)"),
+				enableControl: z
+					.boolean()
+					.optional()
+					.describe("Filter by enable control flag (optional)"),
 			},
-			async ({ deviceId, showHide, filterDisplay, propCode, propName, tslSubType, displayControl, enableControl }) => {
-				console.log("🔥 get_device_properties function ENTRY - parameters:", { 
-					deviceId, showHide, filterDisplay, propCode, propName, tslSubType, displayControl, enableControl 
+			async ({
+				deviceId,
+				showHide,
+				filterDisplay,
+				propCode,
+				propName,
+				tslSubType,
+				displayControl,
+				enableControl,
+			}) => {
+				console.log("🔥 get_device_properties function ENTRY - parameters:", {
+					deviceId,
+					showHide,
+					filterDisplay,
+					propCode,
+					propName,
+					tslSubType,
+					displayControl,
+					enableControl,
 				});
-				
+
 				try {
-					console.log("🚀 get_device_properties called with parameters:", { 
-						deviceId, showHide, filterDisplay, propCode, propName, tslSubType 
+					console.log("🚀 get_device_properties called with parameters:", {
+						deviceId,
+						showHide,
+						filterDisplay,
+						propCode,
+						propName,
+						tslSubType,
 					});
 
 					// Parameter validation
@@ -1581,19 +2014,7 @@ export class VirtualDataMCP extends McpAgent {
 						throw new Error("deviceId is required and must be a number");
 					}
 
-					console.log("✅ Using validated parameters:", { 
-						deviceId, 
-						showHide, 
-						filterDisplay,
-						propCode,
-						propName, 
-						tslSubType,
-						displayControl,
-						enableControl
-					});
-
-					// Call the API using the new getDeviceProperties method
-					const propertiesResult = await EUOneAPIUtils.getDeviceProperties(env, {
+					console.log("✅ Using validated parameters:", {
 						deviceId,
 						showHide,
 						filterDisplay,
@@ -1601,14 +2022,29 @@ export class VirtualDataMCP extends McpAgent {
 						propName,
 						tslSubType,
 						displayControl,
-						enableControl
+						enableControl,
 					});
+
+					// Call the API using the new getDeviceProperties method
+					const propertiesResult = await EUOneAPIUtils.getDeviceProperties(
+						env,
+						{
+							deviceId,
+							showHide,
+							filterDisplay,
+							propCode,
+							propName,
+							tslSubType,
+							displayControl,
+							enableControl,
+						},
+					);
 
 					console.log("✅ Device properties data retrieved successfully");
 
 					// Format the response
 					const propertiesData = propertiesResult.data || [];
-					
+
 					if (!propertiesData || propertiesData.length === 0) {
 						return {
 							content: [
@@ -1619,7 +2055,7 @@ export class VirtualDataMCP extends McpAgent {
 							],
 						};
 					}
-					
+
 					let responseText = `🔧 **Device Properties & Labels**\n`;
 					responseText += `Device ID: \`${deviceId}\`\n`;
 					responseText += `Found ${propertiesData.length} label group(s)\n`;
@@ -1655,16 +2091,16 @@ export class VirtualDataMCP extends McpAgent {
 								responseText += `      📊 Data Type: ${prop.dataType || "N/A"}\n`;
 								responseText += `      🔧 Type: ${prop.type || "N/A"}\n`;
 								responseText += `      📝 Sub Type: ${prop.subType || "N/A"} `;
-								
+
 								// Sub type explanation
 								const subTypeMap: Record<string, string> = {
-									"R": "(Read-only)",
-									"W": "(Write-only)", 
-									"RW": "(Read/Write)"
+									R: "(Read-only)",
+									W: "(Write-only)",
+									RW: "(Read/Write)",
 								};
 								const subTypeDesc = subTypeMap[prop.subType] || "";
 								responseText += `${subTypeDesc}\n`;
-								
+
 								if (prop.desc) {
 									responseText += `      📖 Description: ${prop.desc}\n`;
 								}
@@ -1688,7 +2124,11 @@ export class VirtualDataMCP extends McpAgent {
 								responseText += `      📊 Sort Order: ${prop.sortNum || "N/A"}\n`;
 
 								// Specifications
-								if (prop.specs && Array.isArray(prop.specs) && prop.specs.length > 0) {
+								if (
+									prop.specs &&
+									Array.isArray(prop.specs) &&
+									prop.specs.length > 0
+								) {
 									responseText += `      📐 **Specifications** (${prop.specs.length} spec(s)):\n`;
 									prop.specs.forEach((spec: any, specIndex: number) => {
 										if (spec.name || spec.code) {
@@ -1715,9 +2155,13 @@ export class VirtualDataMCP extends McpAgent {
 										if (spec.upValue !== null && spec.upValue !== undefined) {
 											responseText += `           • Up Value: ${spec.upValue}\n`;
 										}
-										
+
 										// Handle nested specs (like RGB color components)
-										if (spec.specs && Array.isArray(spec.specs) && spec.specs.length > 0) {
+										if (
+											spec.specs &&
+											Array.isArray(spec.specs) &&
+											spec.specs.length > 0
+										) {
 											responseText += `           • Sub-specs (${spec.specs.length} items):\n`;
 											spec.specs.forEach((subSpec: any, subIndex: number) => {
 												if (subSpec.min !== null && subSpec.max !== null) {
@@ -1747,19 +2191,25 @@ export class VirtualDataMCP extends McpAgent {
 					});
 
 					// Summary
-					const totalProperties = propertiesData.reduce((sum: number, group: any) => sum + (group.value?.length || 0), 0);
+					const totalProperties = propertiesData.reduce(
+						(sum: number, group: any) => sum + (group.value?.length || 0),
+						0,
+					);
 					responseText += `📊 **Summary**: Retrieved ${totalProperties} properties across ${propertiesData.length} label group(s) for device \`${deviceId}\`\n`;
-					
+
 					// Filter summary
 					const filters = [];
 					if (showHide !== undefined) filters.push(`showHide: ${showHide}`);
-					if (filterDisplay !== undefined) filters.push(`filterDisplay: ${filterDisplay}`);
+					if (filterDisplay !== undefined)
+						filters.push(`filterDisplay: ${filterDisplay}`);
 					if (propCode) filters.push(`propCode: ${propCode}`);
 					if (propName) filters.push(`propName: ${propName}`);
 					if (tslSubType) filters.push(`tslSubType: ${tslSubType}`);
-					if (displayControl !== undefined) filters.push(`displayControl: ${displayControl}`);
-					if (enableControl !== undefined) filters.push(`enableControl: ${enableControl}`);
-					
+					if (displayControl !== undefined)
+						filters.push(`displayControl: ${displayControl}`);
+					if (enableControl !== undefined)
+						filters.push(`enableControl: ${enableControl}`);
+
 					if (filters.length > 0) {
 						responseText += `🔍 **Applied Filters**: ${filters.join(", ")}\n`;
 					}
@@ -1797,22 +2247,70 @@ export class VirtualDataMCP extends McpAgent {
 		this.server.tool(
 			"get_device_events",
 			{
-				deviceId: z.number().describe("Device ID to get event logs for (required, e.g., 10997)"),
-				eventType: z.enum(["WARN", "ERROR"]).optional().describe("Event type filter (optional): WARN=warning events, ERROR=error events"),
-				pageNum: z.number().optional().describe("Page number starting from 1 (optional, default: 1)"),
-				pageSize: z.number().optional().describe("Number of events per page, max 100 (optional, default: 10)"),
-				startTime: z.number().optional().describe("Start time filter as timestamp in milliseconds (optional, e.g., 1753191166347)"),
-				endTime: z.number().optional().describe("End time filter as timestamp in milliseconds (optional, e.g., 1753191266347)"),
-				handleStatus: z.union([z.literal(0), z.literal(1)]).optional().describe("Handle status filter (optional): 0=unhandled, 1=handled")
+				deviceId: z
+					.number()
+					.describe("Device ID to get event logs for (required, e.g., 10997)"),
+				eventType: z
+					.enum(["WARN", "ERROR"])
+					.optional()
+					.describe(
+						"Event type filter (optional): WARN=warning events, ERROR=error events",
+					),
+				pageNum: z
+					.number()
+					.optional()
+					.describe("Page number starting from 1 (optional, default: 1)"),
+				pageSize: z
+					.number()
+					.optional()
+					.describe(
+						"Number of events per page, max 100 (optional, default: 10)",
+					),
+				startTime: z
+					.number()
+					.optional()
+					.describe(
+						"Start time filter as timestamp in milliseconds (optional, e.g., 1753191166347)",
+					),
+				endTime: z
+					.number()
+					.optional()
+					.describe(
+						"End time filter as timestamp in milliseconds (optional, e.g., 1753191266347)",
+					),
+				handleStatus: z
+					.union([z.literal(0), z.literal(1)])
+					.optional()
+					.describe("Handle status filter (optional): 0=unhandled, 1=handled"),
 			},
-			async ({ deviceId, eventType, pageNum, pageSize, startTime, endTime, handleStatus }) => {
-				console.log("🔥 get_device_events function ENTRY - parameters:", { 
-					deviceId, eventType, pageNum, pageSize, startTime, endTime, handleStatus 
+			async ({
+				deviceId,
+				eventType,
+				pageNum,
+				pageSize,
+				startTime,
+				endTime,
+				handleStatus,
+			}) => {
+				console.log("🔥 get_device_events function ENTRY - parameters:", {
+					deviceId,
+					eventType,
+					pageNum,
+					pageSize,
+					startTime,
+					endTime,
+					handleStatus,
 				});
-				
+
 				try {
-					console.log("🚀 get_device_events called with parameters:", { 
-						deviceId, eventType, pageNum, pageSize, startTime, endTime, handleStatus 
+					console.log("🚀 get_device_events called with parameters:", {
+						deviceId,
+						eventType,
+						pageNum,
+						pageSize,
+						startTime,
+						endTime,
+						handleStatus,
 					});
 
 					// Parameter validation
@@ -1820,14 +2318,14 @@ export class VirtualDataMCP extends McpAgent {
 						throw new Error("deviceId is required and must be a number");
 					}
 
-					console.log("✅ Using validated parameters:", { 
-						deviceId, 
-						eventType, 
+					console.log("✅ Using validated parameters:", {
+						deviceId,
+						eventType,
 						pageNum,
 						pageSize,
 						startTime,
 						endTime,
-						handleStatus
+						handleStatus,
 					});
 
 					// Call the API using the updated getDeviceEvents method
@@ -1838,7 +2336,7 @@ export class VirtualDataMCP extends McpAgent {
 						pageSize,
 						startTime,
 						endTime,
-						handleStatus
+						handleStatus,
 					});
 
 					console.log("✅ Device events data retrieved successfully");
@@ -1846,7 +2344,7 @@ export class VirtualDataMCP extends McpAgent {
 					// Format the response
 					const eventsData = eventsResult.rows || [];
 					const total = eventsResult.total || 0;
-					
+
 					if (!eventsData || eventsData.length === 0) {
 						return {
 							content: [
@@ -1857,7 +2355,7 @@ export class VirtualDataMCP extends McpAgent {
 							],
 						};
 					}
-					
+
 					let responseText = `📅 **Device Event Logs**\n`;
 					responseText += `Device ID: \`${deviceId}\`\n`;
 					responseText += `Found ${eventsData.length} events (Total: ${total})\n`;
@@ -1873,17 +2371,24 @@ export class VirtualDataMCP extends McpAgent {
 						responseText += `   🆔 ID: ${event.id || "N/A"}\n`;
 						responseText += `   🔧 Code: \`${event.eventCode || "N/A"}\`\n`;
 						responseText += `   📱 Device: ${event.deviceName || "N/A"} (\`${event.deviceKey || "N/A"}\`)\n`;
-						
+
 						// Event type and status
-						const eventTypeEmoji = event.eventType === "ERROR" ? "🔴" : event.eventType === "WARN" ? "🟡" : "🔵";
+						const eventTypeEmoji =
+							event.eventType === "ERROR"
+								? "🔴"
+								: event.eventType === "WARN"
+									? "🟡"
+									: "🔵";
 						responseText += `   ${eventTypeEmoji} Type: ${event.eventType || "N/A"}\n`;
-						
+
 						const handleStatusEmoji = event.handleStatus === 1 ? "✅" : "⏳";
-						const handleStatusText = event.handleStatus === 1 ? "Handled" : "Unhandled";
+						const handleStatusText =
+							event.handleStatus === 1 ? "Handled" : "Unhandled";
 						responseText += `   ${handleStatusEmoji} Status: ${handleStatusText}\n`;
-						
+
 						const clearFlagEmoji = event.clearFlag === 0 ? "🔧" : "🆕";
-						const clearFlagText = event.clearFlag === 0 ? "Fault Cleared" : "New Fault";
+						const clearFlagText =
+							event.clearFlag === 0 ? "Fault Cleared" : "New Fault";
 						responseText += `   ${clearFlagEmoji} Flag: ${clearFlagText}\n`;
 
 						// Timestamps with China timezone for easy comparison with SaaS platform
@@ -1914,9 +2419,11 @@ export class VirtualDataMCP extends McpAgent {
 								const eventDataObj = JSON.parse(event.eventData);
 								responseText += `   📊 **Event Data**:\n`;
 								if (eventDataObj.data?.kv) {
-									Object.entries(eventDataObj.data.kv).forEach(([key, value]) => {
-										responseText += `      • ${key}: ${value}\n`;
-									});
+									Object.entries(eventDataObj.data.kv).forEach(
+										([key, value]) => {
+											responseText += `      • ${key}: ${value}\n`;
+										},
+									);
 								}
 								if (eventDataObj.ticket) {
 									responseText += `      🎫 Ticket: ${eventDataObj.ticket}\n`;
@@ -1930,11 +2437,18 @@ export class VirtualDataMCP extends McpAgent {
 						}
 
 						// Device status at event time
-						if (event.deviceStatus && (event.deviceStatus.outputParams || event.deviceStatus.otherParams)) {
+						if (
+							event.deviceStatus &&
+							(event.deviceStatus.outputParams ||
+								event.deviceStatus.otherParams)
+						) {
 							responseText += `   📱 **Device Status at Event Time**:\n`;
-							
+
 							// Output parameters (related to the event)
-							if (event.deviceStatus.outputParams && event.deviceStatus.outputParams.length > 0) {
+							if (
+								event.deviceStatus.outputParams &&
+								event.deviceStatus.outputParams.length > 0
+							) {
 								responseText += `      🎯 **Event-related Properties**:\n`;
 								event.deviceStatus.outputParams.forEach((param: any) => {
 									responseText += `         • ${param.name || param.code}: ${param.upValue !== null ? param.upValue : "N/A"}`;
@@ -1946,15 +2460,20 @@ export class VirtualDataMCP extends McpAgent {
 							}
 
 							// Other parameters (device context)
-							if (event.deviceStatus.otherParams && event.deviceStatus.otherParams.length > 0) {
+							if (
+								event.deviceStatus.otherParams &&
+								event.deviceStatus.otherParams.length > 0
+							) {
 								responseText += `      📊 **Other Device Properties** (${event.deviceStatus.otherParams.length} properties):\n`;
-								event.deviceStatus.otherParams.slice(0, 3).forEach((param: any) => {
-									responseText += `         • ${param.name || param.code}: ${param.upValue !== null ? param.upValue : "N/A"}`;
-									if (param.specs && param.specs[0] && param.specs[0].unit) {
-										responseText += ` ${param.specs[0].unit}`;
-									}
-									responseText += `\n`;
-								});
+								event.deviceStatus.otherParams
+									.slice(0, 3)
+									.forEach((param: any) => {
+										responseText += `         • ${param.name || param.code}: ${param.upValue !== null ? param.upValue : "N/A"}`;
+										if (param.specs && param.specs[0] && param.specs[0].unit) {
+											responseText += ` ${param.specs[0].unit}`;
+										}
+										responseText += `\n`;
+									});
 								if (event.deviceStatus.otherParams.length > 3) {
 									responseText += `         ... and ${event.deviceStatus.otherParams.length - 3} more properties\n`;
 								}
@@ -1991,16 +2510,22 @@ export class VirtualDataMCP extends McpAgent {
 
 					// Summary and pagination info
 					responseText += `📊 **Summary**: Retrieved ${eventsData.length} events for device \`${deviceId}\`\n`;
-					
+
 					// Filter summary
 					const filters = [];
 					if (eventType) filters.push(`eventType: ${eventType}`);
-					if (handleStatus !== undefined) filters.push(`handleStatus: ${handleStatus === 0 ? "unhandled" : "handled"}`);
-					if (startTime) filters.push(`startTime: ${this.formatTimestamp(startTime)}`);
-					if (endTime) filters.push(`endTime: ${this.formatTimestamp(endTime)}`);
+					if (handleStatus !== undefined)
+						filters.push(
+							`handleStatus: ${handleStatus === 0 ? "unhandled" : "handled"}`,
+						);
+					if (startTime)
+						filters.push(`startTime: ${this.formatTimestamp(startTime)}`);
+					if (endTime)
+						filters.push(`endTime: ${this.formatTimestamp(endTime)}`);
 					if (pageNum && pageNum !== 1) filters.push(`pageNum: ${pageNum}`);
-					if (pageSize && pageSize !== 10) filters.push(`pageSize: ${pageSize}`);
-					
+					if (pageSize && pageSize !== 10)
+						filters.push(`pageSize: ${pageSize}`);
+
 					if (filters.length > 0) {
 						responseText += `🔍 **Applied Filters**: ${filters.join(", ")}\n`;
 					}
@@ -2044,24 +2569,59 @@ export class VirtualDataMCP extends McpAgent {
 		this.server.tool(
 			"upload_device_data",
 			{
-				deviceKey: z.string().describe("Device key (required, e.g., '869487060952008')"),
-				productKey: z.string().describe("Product key (required, e.g., 'pe17Nb')"),
-				upTsTime: z.number().optional().describe("Upload timestamp in milliseconds (optional, defaults to current time)"),
-				data: z.record(z.any()).describe("Device data object with TSL property values (required, e.g., {temperature: 26.7, humidity: 68})")
+				deviceKey: z
+					.string()
+					.describe("Device key (required, e.g., '869487060952008')"),
+				productKey: z
+					.string()
+					.describe("Product key (required, e.g., 'pe17Nb')"),
+				upTsTime: z
+					.number()
+					.optional()
+					.describe(
+						"Upload timestamp in milliseconds (optional, defaults to current time)",
+					),
+				data: z
+					.record(z.any())
+					.describe(
+						"Device data object with TSL property values (required, e.g., {temperature: 26.7, humidity: 68})",
+					),
 			},
 			async ({ deviceKey, productKey, upTsTime, data }) => {
-				console.log("🔥 upload_device_data function ENTRY - parameters:", { deviceKey, productKey, upTsTime, data });
-				
+				console.log("🔥 upload_device_data function ENTRY - parameters:", {
+					deviceKey,
+					productKey,
+					upTsTime,
+					data,
+				});
+
 				try {
-					console.log("🚀 upload_device_data called with parameters:", { deviceKey, productKey, upTsTime, data });
+					console.log("🚀 upload_device_data called with parameters:", {
+						deviceKey,
+						productKey,
+						upTsTime,
+						data,
+					});
 
 					// Parameter validation
-					if (!deviceKey || typeof deviceKey !== "string" || deviceKey.trim() === "") {
-						throw new Error("deviceKey is required and must be a non-empty string");
+					if (
+						!deviceKey ||
+						typeof deviceKey !== "string" ||
+						deviceKey.trim() === ""
+					) {
+						throw new Error(
+							"deviceKey is required and must be a non-empty string",
+						);
 					}
 
-					if (!productKey || typeof productKey !== "string" || productKey.trim() === "") {
-						throw new Error("productKey is required and must be a non-empty string");
+					if (
+						!productKey ||
+						typeof productKey !== "string" ||
+						productKey.trim() === ""
+					) {
+						throw new Error(
+							"productKey is required and must be a non-empty string",
+						);
 					}
 
 					if (!data || typeof data !== "object" || Array.isArray(data)) {
@@ -2069,15 +2629,20 @@ export class VirtualDataMCP extends McpAgent {
 					}
 
 					// Validate timestamp if provided
-					if (upTsTime !== undefined && (typeof upTsTime !== "number" || upTsTime <= 0)) {
-						throw new Error("upTsTime must be a positive number representing milliseconds since epoch");
+					if (
+						upTsTime !== undefined &&
+						(typeof upTsTime !== "number" || upTsTime <= 0)
+					) {
+						throw new Error(
+							"upTsTime must be a positive number representing milliseconds since epoch",
+						);
 					}
 
-					console.log("✅ Using validated parameters:", { 
+					console.log("✅ Using validated parameters:", {
 						deviceKey: deviceKey.trim(),
 						productKey: productKey.trim(),
 						upTsTime: upTsTime,
-						data: data
+						data: data,
 					});
 
 					// Call the API using the optimized uploadDeviceData method
@@ -2085,7 +2650,7 @@ export class VirtualDataMCP extends McpAgent {
 						deviceKey: deviceKey.trim(),
 						productKey: productKey.trim(),
 						upTsTime: upTsTime,
-						data: data
+						data: data,
 					});
 
 					console.log("✅ Device data uploaded successfully");
@@ -2150,46 +2715,98 @@ export class VirtualDataMCP extends McpAgent {
 		this.server.tool(
 			"write_device_data",
 			{
-				deviceIdList: z.array(z.number()).describe("List of device IDs to send control commands to (required, e.g., [43017])"),
-				tslPropMap: z.record(z.any()).optional().describe("TSL property control map: propCode -> downValue (optional, e.g., {\"FAN_SWITCH\": true, \"int_rw\": 1})"),
-				tslServiceMap: z.record(z.record(z.any())).optional().describe("TSL service control map: serviceCode -> {propCode: value} (optional)"),
-				batchSendType: z.string().optional().describe("Batch send type, default is detail send (optional)"),
-				cacheTime: z.number().optional().describe("Cache time in seconds (optional)"),
-				isCache: z.boolean().optional().describe("Whether to use cache (optional)")
+				deviceIdList: z
+					.array(z.number())
+					.describe(
+						"List of device IDs to send control commands to (required, e.g., [43017])",
+					),
+				tslPropMap: z
+					.record(z.any())
+					.optional()
+					.describe(
+						'TSL property control map: propCode -> downValue (optional, e.g., {"FAN_SWITCH": true, "int_rw": 1})',
+					),
+				tslServiceMap: z
+					.record(z.record(z.any()))
+					.optional()
+					.describe(
+						"TSL service control map: serviceCode -> {propCode: value} (optional)",
+					),
+				batchSendType: z
+					.string()
+					.optional()
+					.describe("Batch send type, default is detail send (optional)"),
+				cacheTime: z
+					.number()
+					.optional()
+					.describe("Cache time in seconds (optional)"),
+				isCache: z
+					.boolean()
+					.optional()
+					.describe("Whether to use cache (optional)"),
 			},
-			async ({ deviceIdList, tslPropMap, tslServiceMap, batchSendType, cacheTime, isCache }) => {
-				console.log("🔥 write_device_data function ENTRY - parameters:", { 
-					deviceIdList, tslPropMap, tslServiceMap, batchSendType, cacheTime, isCache 
+			async ({
+				deviceIdList,
+				tslPropMap,
+				tslServiceMap,
+				batchSendType,
+				cacheTime,
+				isCache,
+			}) => {
+				console.log("🔥 write_device_data function ENTRY - parameters:", {
+					deviceIdList,
+					tslPropMap,
+					tslServiceMap,
+					batchSendType,
+					cacheTime,
+					isCache,
 				});
-				
+
 				try {
-					console.log("🚀 write_device_data called with parameters:", { 
-						deviceIdList, tslPropMap, tslServiceMap, batchSendType, cacheTime, isCache 
-					});
-
-					// Parameter validation
-					if (!deviceIdList || !Array.isArray(deviceIdList) || deviceIdList.length === 0) {
-						throw new Error("deviceIdList is required and must be a non-empty array of device IDs");
-					}
-
-					// Validate deviceIdList contains only numbers
-					const invalidIds = deviceIdList.filter(id => typeof id !== "number" || !Number.isInteger(id) || id <= 0);
-					if (invalidIds.length > 0) {
-						throw new Error(`Invalid device IDs: ${invalidIds.join(", ")}. Device IDs must be positive integers.`);
-					}
-
-					// At least one of tslPropMap or tslServiceMap must be provided
-					if (!tslPropMap && !tslServiceMap) {
-						throw new Error("At least one of tslPropMap or tslServiceMap must be provided");
-					}
-
-					console.log("✅ Using validated parameters:", { 
+					console.log("🚀 write_device_data called with parameters:", {
 						deviceIdList,
 						tslPropMap,
 						tslServiceMap,
 						batchSendType,
 						cacheTime,
-						isCache
+						isCache,
+					});
+
+					// Parameter validation
+					if (
+						!deviceIdList ||
+						!Array.isArray(deviceIdList) ||
+						deviceIdList.length === 0
+					) {
+						throw new Error(
+							"deviceIdList is required and must be a non-empty array of device IDs",
+						);
+					}
+
+					// Validate deviceIdList contains only numbers
+					const invalidIds = deviceIdList.filter(
+						(id) => typeof id !== "number" || !Number.isInteger(id) || id <= 0,
+					);
+					if (invalidIds.length > 0) {
+						throw new Error(
+							`Invalid device IDs: ${invalidIds.join(", ")}. Device IDs must be positive integers.`,
+						);
+					}
+
+					// At least one of tslPropMap or tslServiceMap must be provided
+					if (!tslPropMap && !tslServiceMap) {
+						throw new Error(
+							"At least one of tslPropMap or tslServiceMap must be provided",
+						);
+					}
+
+					console.log("✅ Using validated parameters:", {
+						deviceIdList,
+						tslPropMap,
+						tslServiceMap,
+						batchSendType,
+						cacheTime,
+						isCache,
 					});
 
 					// Call the API using the new writeDeviceData method
@@ -2199,7 +2816,7 @@ export class VirtualDataMCP extends McpAgent {
 						tslServiceMap,
 						batchSendType,
 						cacheTime,
-						isCache
+						isCache,
 					});
 
 					console.log("✅ Device control command sent successfully");
@@ -2231,13 +2848,15 @@ export class VirtualDataMCP extends McpAgent {
 
 					responseText += `📊 **Summary**: Successfully sent control commands to ${deviceIdList.length} device(s)\n`;
 					responseText += `🎯 Target Device IDs: ${deviceIdList.join(", ")}\n`;
-					
+
 					// Additional configuration
 					const configDetails = [];
 					if (batchSendType) configDetails.push(`Batch Type: ${batchSendType}`);
-					if (cacheTime !== undefined) configDetails.push(`Cache Time: ${cacheTime}s`);
-					if (isCache !== undefined) configDetails.push(`Use Cache: ${isCache ? "Yes" : "No"}`);
-					
+					if (cacheTime !== undefined)
+						configDetails.push(`Cache Time: ${cacheTime}s`);
+					if (isCache !== undefined)
+						configDetails.push(`Use Cache: ${isCache ? "Yes" : "No"}`);
+
 					if (configDetails.length > 0) {
 						responseText += `⚙️ Configuration: ${configDetails.join(", ")}\n`;
 					}
@@ -2274,6 +2893,240 @@ export class VirtualDataMCP extends McpAgent {
 							{
 								type: "text",
 								text: `❌ Error sending device control commands: ${errorMessage}`,
+							},
+						],
+					};
+				}
+			},
+		);
+	}
+
+	private addQueryDeviceDataTool(env: EUOneEnvironment) {
+		this.server.tool(
+			"query_device_data",
+			{
+				deviceKey: z
+					.string()
+					.describe("Device key (required, e.g., 'bangkok')"),
+				productKey: z
+					.string()
+					.describe("Product key (required, e.g., 'pe17SR')"),
+				startTime: z
+					.number()
+					.describe(
+						"Start time timestamp in milliseconds (required, e.g., 1755619200000)",
+					),
+				endTime: z
+					.number()
+					.describe(
+						"End time timestamp in milliseconds (required, e.g., 1755705599999)",
+					),
+				pageNum: z
+					.number()
+					.optional()
+					.describe("Page number starting from 1 (optional, default: 1)"),
+				pageSize: z
+					.number()
+					.optional()
+					.describe("Number of records per page (optional, default: 10)"),
+				timeZoneOffset: z
+					.string()
+					.optional()
+					.describe("Time zone offset (optional, e.g., '+08:00')"),
+			},
+			async ({
+				deviceKey,
+				productKey,
+				startTime,
+				endTime,
+				pageNum,
+				pageSize,
+				timeZoneOffset,
+			}) => {
+				console.log("🔥 query_device_data function ENTRY - parameters:", {
+					deviceKey,
+					productKey,
+					startTime,
+					endTime,
+					pageNum,
+					pageSize,
+					timeZoneOffset,
+				});
+
+				try {
+					console.log("🚀 query_device_data called with parameters:", {
+						deviceKey,
+						productKey,
+						startTime,
+						endTime,
+						pageNum,
+						pageSize,
+						timeZoneOffset,
+					});
+
+					// Parameter validation
+					if (
+						!deviceKey ||
+						typeof deviceKey !== "string" ||
+						deviceKey.trim() === ""
+					) {
+						throw new Error(
+							"deviceKey is required and must be a non-empty string",
+						);
+					}
+
+					if (
+						!productKey ||
+						typeof productKey !== "string" ||
+						productKey.trim() === ""
+					) {
+						throw new Error(
+							"productKey is required and must be a non-empty string",
+						);
+					}
+
+					if (!startTime || typeof startTime !== "number") {
+						throw new Error(
+							"startTime is required and must be a number (timestamp in milliseconds)",
+						);
+					}
+
+					if (!endTime || typeof endTime !== "number") {
+						throw new Error(
+							"endTime is required and must be a number (timestamp in milliseconds)",
+						);
+					}
+
+					if (startTime >= endTime) {
+						throw new Error("startTime must be less than endTime");
+					}
+
+					console.log("✅ Using validated parameters:", {
+						deviceKey: deviceKey.trim(),
+						productKey: productKey.trim(),
+						startTime,
+						endTime,
+						pageNum: pageNum || 1,
+						pageSize: pageSize || 10,
+						timeZoneOffset,
+					});
+
+					// Call the API using the new queryDeviceData method
+					const queryResult = await EUOneAPIUtils.queryDeviceData(env, {
+						deviceKey: deviceKey.trim(),
+						productKey: productKey.trim(),
+						startTime,
+						endTime,
+						pageNum,
+						pageSize,
+						timeZoneOffset,
+					});
+
+					console.log("✅ Device data query successful");
+
+					// Format the response
+					const historyData = queryResult.rows || [];
+					const total = queryResult.total || 0;
+					const headers = queryResult.header || [];
+
+					if (!historyData || historyData.length === 0) {
+						return {
+							content: [
+								{
+									type: "text",
+									text: `❌ No historical data found for device \`${deviceKey.trim()}\` in the specified time range.`,
+								},
+							],
+						};
+					}
+
+					let responseText = `📊 **Device Historical Data Query**\n`;
+					responseText += `Device Key: \`${deviceKey.trim()}\`\n`;
+					responseText += `Product Key: \`${productKey.trim()}\`\n`;
+					responseText += `Time Range: ${this.formatTimestamp(startTime)} → ${this.formatTimestamp(endTime)}\n`;
+					responseText += `Found ${historyData.length} records (Total: ${total})\n`;
+					if (total > historyData.length) {
+						responseText += `💡 Showing ${historyData.length} of ${total} records. Use pageNum and pageSize for pagination.\n`;
+					}
+					responseText += `============================================================\n\n`;
+
+					// Show data header information
+					if (headers.length > 0) {
+						responseText += `📋 **Data Properties** (${headers.length} properties):\n`;
+						headers.forEach((header: any, index: number) => {
+							responseText += `   ${index + 1}. **${header.name || header.code}** (\`${header.code}\`) - ${header.dataType}`;
+							if (header.unit) {
+								responseText += ` ${header.unit}`;
+							}
+							responseText += `\n`;
+						});
+						responseText += `\n`;
+					}
+
+					// Show historical data records
+					responseText += `📈 **Historical Data Records**:\n`;
+					historyData.forEach((record: any, index: number) => {
+						responseText += `\n**Record ${index + 1}** - ${record.tsTime}\n`;
+
+						// Show each property with its value
+						if (headers.length > 0) {
+							headers.forEach((header: any) => {
+								const value = record[header.code];
+								if (value !== undefined && value !== null) {
+									responseText += `   📊 ${header.name || header.code}: ${value}`;
+									if (header.unit) {
+										responseText += ` ${header.unit}`;
+									}
+									responseText += `\n`;
+								}
+							});
+						} else {
+							// Fallback: show all properties if no headers
+							Object.entries(record).forEach(([key, value]) => {
+								if (key !== "tsTime") {
+									responseText += `   📊 ${key}: ${value}\n`;
+								}
+							});
+						}
+					});
+
+					responseText += `\n📊 **Summary**: Successfully retrieved ${historyData.length} historical data records for device \`${deviceKey.trim()}\`\n`;
+					responseText += `🏭 Product: \`${productKey.trim()}\`\n`;
+					responseText += `⏰ Time Range: ${this.formatTimestamp(startTime)} to ${this.formatTimestamp(endTime)}\n`;
+					responseText += `📈 Properties: ${headers.length} data properties tracked\n`;
+
+					// Show pagination info
+					if (total > historyData.length) {
+						responseText += `\n📄 **Pagination**: Page ${pageNum || 1} of ${Math.ceil(total / (pageSize || 10))}\n`;
+						responseText += `💡 Use pageNum and pageSize parameters for more results\n`;
+					}
+
+					// API response information
+					if (queryResult.msg) {
+						responseText += `\n💬 **API Response**: ${queryResult.msg}\n`;
+					}
+
+					return {
+						content: [
+							{
+								type: "text",
+								text: responseText,
+							},
+						],
+					};
+				} catch (error) {
+					console.error("❌ query_device_data error:", error);
+
+					let errorMessage = "Unknown error occurred";
+					if (error instanceof Error) {
+						errorMessage = error.message;
+					}
+
+					return {
+						content: [
+							{
+								type: "text",
+								text: `❌ Error querying device historical data: ${errorMessage}`,
 							},
 						],
 					};

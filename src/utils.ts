@@ -39,13 +39,19 @@ export class EUOneAPIUtils {
 		// Check if we have a valid cached token (with 120 second buffer for safety)
 		const bufferTime = 120 * 1000; // 120 seconds for better safety margin
 		if (accessToken && Date.now() < tokenExpiry - bufferTime) {
-			console.log("🔄 Using cached access token (expires in", Math.round((tokenExpiry - Date.now()) / 1000), "seconds)");
+			console.log(
+				"🔄 Using cached access token (expires in",
+				Math.round((tokenExpiry - Date.now()) / 1000),
+				"seconds)",
+			);
 			return accessToken;
 		}
 
 		// Check if there's already a token refresh in progress (prevents duplicate requests)
 		if (tokenRefreshPromise) {
-			console.log("⏳ Token refresh already in progress, waiting for completion...");
+			console.log(
+				"⏳ Token refresh already in progress, waiting for completion...",
+			);
 			return await tokenRefreshPromise;
 		}
 
@@ -96,39 +102,39 @@ export class EUOneAPIUtils {
 					},
 				);
 
-			if (!response.ok) {
-				throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-			}
+				if (!response.ok) {
+					throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+				}
 
-			const data = (await response.json()) as any;
-			console.log("Auth response:", JSON.stringify(data, null, 2));
+				const data = (await response.json()) as any;
+				console.log("Auth response:", JSON.stringify(data, null, 2));
 
-			if (data.code !== 200) {
-				throw new Error(
-					`Authentication failed: ${data.msg || "Unknown error"}`,
+				if (data.code !== 200) {
+					throw new Error(
+						`Authentication failed: ${data.msg || "Unknown error"}`,
+					);
+				}
+
+				if (!data.data || !data.data.accessToken) {
+					throw new Error(
+						`Invalid authentication response: ${JSON.stringify(data)}`,
+					);
+				}
+
+				accessToken = data.data.accessToken;
+
+				if (!accessToken) {
+					throw new Error("No access token received from API");
+				}
+
+				// Parse expiry time from string to number with enhanced error handling
+				const expiresIn = parseInt(data.data.accessTokenExpireIn || "3600");
+				// Set expiry to 1 hour from now (tokens typically last longer)
+				tokenExpiry = Date.now() + expiresIn * 1000;
+
+				console.log(
+					`✅ New access token obtained, expires in ${expiresIn} seconds`,
 				);
-			}
-
-			if (!data.data || !data.data.accessToken) {
-				throw new Error(
-					`Invalid authentication response: ${JSON.stringify(data)}`,
-				);
-			}
-
-			accessToken = data.data.accessToken;
-
-			if (!accessToken) {
-				throw new Error("No access token received from API");
-			}
-
-			// Parse expiry time from string to number with enhanced error handling
-			const expiresIn = parseInt(data.data.accessTokenExpireIn || "3600");
-			// Set expiry to 1 hour from now (tokens typically last longer)
-			tokenExpiry = Date.now() + expiresIn * 1000;
-
-			console.log(
-				`✅ New access token obtained, expires in ${expiresIn} seconds`,
-			);
 
 				return accessToken!;
 			} catch (error) {
@@ -204,17 +210,18 @@ export class EUOneAPIUtils {
 				// Ensure we have a valid token first
 				const token = await EUOneAPIUtils.ensureValidToken(env);
 				const result = await apiCall(token);
-				
+
 				// If successful, log and return
 				if (retryCount > 0) {
 					console.log(`✅ API call succeeded after ${retryCount} retry(ies)`);
 				}
 				return result;
 			} catch (error) {
-				const errorMessage = error instanceof Error ? error.message : String(error);
-				
+				const errorMessage =
+					error instanceof Error ? error.message : String(error);
+
 				// FIXED: More precise error detection for authentication/session issues
-				const isAuthError = (
+				const isAuthError =
 					// Exact session timeout messages
 					errorMessage.includes("Session timed out") ||
 					errorMessage.includes("session timeout") ||
@@ -223,15 +230,17 @@ export class EUOneAPIUtils {
 					errorMessage.includes("HTTP 401") ||
 					errorMessage.includes("HTTP 403") ||
 					// Exact API error codes
-					errorMessage.includes("401") && errorMessage.includes("Unauthorized") ||
+					(errorMessage.includes("401") &&
+						errorMessage.includes("Unauthorized")) ||
 					// Specific token errors (not generic "auth" or "token")
 					errorMessage.includes("access token expired") ||
 					errorMessage.includes("token invalid") ||
-					errorMessage.includes("authentication failed")
+					errorMessage.includes("authentication failed");
+
+				console.log(
+					`🔍 Error analysis: isAuthError=${isAuthError}, message="${errorMessage}"`,
 				);
 
-				console.log(`🔍 Error analysis: isAuthError=${isAuthError}, message="${errorMessage}"`);
-				
 				// Add detailed error logging for debugging
 				if (!isAuthError) {
 					console.log("ℹ️ Not treating as auth error - will not retry");
@@ -251,14 +260,19 @@ export class EUOneAPIUtils {
 					tokenRefreshPromise = null; // Also clear any pending refresh
 
 					// Wait a bit before retrying to avoid rapid-fire requests
-					await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-					
+					await new Promise((resolve) =>
+						setTimeout(resolve, 1000 * retryCount),
+					);
+
 					continue; // Retry the loop
 				}
 
 				// If not an auth error or we've exceeded retries, throw the error
 				if (retryCount > 0) {
-					console.error(`❌ Failed after ${retryCount} retry(ies):`, errorMessage);
+					console.error(
+						`❌ Failed after ${retryCount} retry(ies):`,
+						errorMessage,
+					);
 				}
 				throw error;
 			}
@@ -268,32 +282,32 @@ export class EUOneAPIUtils {
 		throw new Error("Maximum retries exceeded");
 	}
 
-	static async healthCheck(env: EUOneEnvironment): Promise<{ 
-		status: string; 
-		tokenStatus: string; 
+	static async healthCheck(env: EUOneEnvironment): Promise<{
+		status: string;
+		tokenStatus: string;
 		tokenExpiry?: string;
 		apiConnectivity: string;
 	}> {
 		return EUOneAPIUtils.safeAPICall(async () => {
 			// Check token validity
 			const token = await EUOneAPIUtils.getAccessToken(env);
-			
+
 			// Get token expiry info
 			const timeUntilExpiry = Math.max(0, tokenExpiry - Date.now());
 			const expiryMinutes = Math.round(timeUntilExpiry / 60000);
-			
+
 			// FIX: Test authentication system directly, not business APIs
 			// health_check should verify auth system works, not test business APIs
 			const apiStatus = "OK - Authentication system verified";
-			
+
 			// The fact that we successfully got a token above proves auth system works
 			// No need to test business APIs in health_check
-			
-			return { 
+
+			return {
 				status: "OK - Authentication successful",
 				tokenStatus: `Valid (expires in ${expiryMinutes} minutes)`,
 				tokenExpiry: new Date(tokenExpiry).toISOString(),
-				apiConnectivity: apiStatus
+				apiConnectivity: apiStatus,
 			};
 		});
 	}
@@ -326,7 +340,6 @@ export class EUOneAPIUtils {
 		});
 	}
 
-
 	// Simplified product list method focused on pagination (based on API playground results)
 	static async getProductListPaginated(
 		env: EUOneEnvironment,
@@ -345,8 +358,14 @@ export class EUOneAPIUtils {
 			console.log("🔐 Using token for product list (length):", token.length);
 			console.log("🔐 Token preview:", token.substring(0, 20) + "...");
 			console.log("⏰ Request time:", new Date().toISOString());
-			console.log("⏰ Cached token expiry:", new Date(tokenExpiry).toISOString());
-			console.log("⏰ Time until expiry (minutes):", Math.round((tokenExpiry - Date.now()) / 60000));
+			console.log(
+				"⏰ Cached token expiry:",
+				new Date(tokenExpiry).toISOString(),
+			);
+			console.log(
+				"⏰ Time until expiry (minutes):",
+				Math.round((tokenExpiry - Date.now()) / 60000),
+			);
 
 			// Build query parameters - only core parameters
 			const queryParams = new URLSearchParams();
@@ -357,7 +376,7 @@ export class EUOneAPIUtils {
 
 			queryParams.append("pageNum", pageNum);
 			queryParams.append("pageSize", pageSize);
-			
+
 			// FIX: Only pass pageNum and pageSize as per user specification
 			// Removed optional filters that may cause 403 errors
 
@@ -374,7 +393,10 @@ export class EUOneAPIUtils {
 			});
 
 			console.log("📡 Product list response status:", response.status);
-			console.log("📡 Response headers:", JSON.stringify([...response.headers.entries()]));
+			console.log(
+				"📡 Response headers:",
+				JSON.stringify([...response.headers.entries()]),
+			);
 
 			if (!response.ok) {
 				const errorText = await response.text();
@@ -384,19 +406,24 @@ export class EUOneAPIUtils {
 					statusText: response.statusText,
 					headers: [...response.headers.entries()],
 					body: errorText,
-					url: response.url
+					url: response.url,
 				});
-				throw new Error(`API call failed: HTTP ${response.status} - ${errorText}`);
+				throw new Error(
+					`API call failed: HTTP ${response.status} - ${errorText}`,
+				);
 			}
 
 			const result = (await response.json()) as any;
-			
+
 			// ===== COMPREHENSIVE API RESPONSE LOGGING =====
 			console.log("🔍 === COMPLETE PRODUCT LIST API RESPONSE ===");
 			console.log("📋 Full API Response (Pretty Print):");
 			console.log(JSON.stringify(result, null, 2));
 			console.log("🔢 Response Type:", typeof result);
-			console.log("📊 Response Keys:", result ? Object.keys(result) : "No keys");
+			console.log(
+				"📊 Response Keys:",
+				result ? Object.keys(result) : "No keys",
+			);
 			console.log("📦 Data Structure Analysis:");
 			console.log("  - code:", result.code);
 			console.log("  - msg:", result.msg);
@@ -404,7 +431,7 @@ export class EUOneAPIUtils {
 			console.log("  - rows type:", typeof result.rows);
 			console.log("  - rows length:", result.rows?.length || "No rows");
 			console.log("  - total:", result.total);
-			
+
 			if (result.rows && Array.isArray(result.rows)) {
 				console.log("📋 Products Array Details:");
 				result.rows.forEach((product: any, index: number) => {
@@ -413,12 +440,14 @@ export class EUOneAPIUtils {
 					console.log(`    - Product Name: ${product.productName}`);
 					console.log(`    - Product Key: ${product.productKey}`);
 					console.log(`    - Product ID: ${product.productId}`);
-					console.log(`    - Full Product Data: ${JSON.stringify(product, null, 4)}`);
+					console.log(
+						`    - Full Product Data: ${JSON.stringify(product, null, 4)}`,
+					);
 				});
 			}
 			console.log("🔍 === END COMPLETE API RESPONSE ===");
 			// ===== END COMPREHENSIVE LOGGING =====
-			
+
 			console.log(
 				"📋 Product list success - received",
 				result.rows?.length || 0,
@@ -429,9 +458,11 @@ export class EUOneAPIUtils {
 				console.error("❌ API returned error code:", {
 					code: result.code,
 					msg: result.msg,
-					fullResponse: result
+					fullResponse: result,
 				});
-				throw new Error(`API call failed: Code ${result.code} - ${result.msg || "Unknown error"}`);
+				throw new Error(
+					`API call failed: Code ${result.code} - ${result.msg || "Unknown error"}`,
+				);
 			}
 
 			return result;
@@ -478,7 +509,6 @@ export class EUOneAPIUtils {
 		});
 	}
 
-
 	static async getDeviceList(
 		env: EUOneEnvironment,
 		options: {
@@ -506,22 +536,37 @@ export class EUOneAPIUtils {
 			const requestBody = {
 				pageNum: options.pageNum || 1,
 				pageSize: options.pageSize || 10,
-				activationStatus: options.activationStatus !== undefined ? options.activationStatus : 1, // Default to activated devices
-				enableListSubData: options.enableListSubData !== undefined ? options.enableListSubData : true,
+				activationStatus:
+					options.activationStatus !== undefined ? options.activationStatus : 1, // Default to activated devices
+				enableListSubData:
+					options.enableListSubData !== undefined
+						? options.enableListSubData
+						: true,
 				extFiledList: options.extFiledList || [],
 				tlsPropCfgList: options.tlsPropCfgList || [],
 				...(options.productId && { productId: options.productId }),
 				...(options.deviceKey && { deviceKey: options.deviceKey }),
 				...(options.deviceName && { deviceName: options.deviceName }),
 				...(options.orgId && { orgId: options.orgId }),
-				...(options.deviceQueryKey && { deviceQueryKey: options.deviceQueryKey }),
-				...(options.onlineStatus !== undefined && { onlineStatus: options.onlineStatus }),
-				...(options.runningStatus !== undefined && { runningStatus: options.runningStatus }),
-				...(options.accessType !== undefined && { accessType: options.accessType }),
+				...(options.deviceQueryKey && {
+					deviceQueryKey: options.deviceQueryKey,
+				}),
+				...(options.onlineStatus !== undefined && {
+					onlineStatus: options.onlineStatus,
+				}),
+				...(options.runningStatus !== undefined && {
+					runningStatus: options.runningStatus,
+				}),
+				...(options.accessType !== undefined && {
+					accessType: options.accessType,
+				}),
 				...(options.productKey && { productKey: options.productKey }),
 			};
 
-			console.log("📝 Device list request body:", JSON.stringify(requestBody, null, 2));
+			console.log(
+				"📝 Device list request body:",
+				JSON.stringify(requestBody, null, 2),
+			);
 
 			const url = `${env.BASE_URL}/v2/device/list`;
 			console.log("📝 Device list request URL:", url);
@@ -541,19 +586,26 @@ export class EUOneAPIUtils {
 			if (!response.ok) {
 				const errorText = await response.text();
 				console.error("❌ Device list HTTP error response:", errorText);
-				throw new Error(`API call failed: HTTP ${response.status} - ${errorText}`);
+				throw new Error(
+					`API call failed: HTTP ${response.status} - ${errorText}`,
+				);
 			}
 
 			const result = (await response.json()) as any;
-			console.log("📱 Device list API response:", JSON.stringify(result, null, 2));
+			console.log(
+				"📱 Device list API response:",
+				JSON.stringify(result, null, 2),
+			);
 
 			if (result.code !== 200) {
 				console.error("❌ Device list API returned error code:", {
 					code: result.code,
 					msg: result.msg,
-					fullResponse: result
+					fullResponse: result,
 				});
-				throw new Error(`API call failed: Code ${result.code} - ${result.msg || "Unknown error"}`);
+				throw new Error(
+					`API call failed: Code ${result.code} - ${result.msg || "Unknown error"}`,
+				);
 			}
 
 			return result;
@@ -575,7 +627,7 @@ export class EUOneAPIUtils {
 			// Build query parameters
 			const queryParams = new URLSearchParams();
 			queryParams.append("productKey", options.productKey);
-			
+
 			if (options.labelId !== undefined) {
 				queryParams.append("labelId", String(options.labelId));
 			}
@@ -603,19 +655,26 @@ export class EUOneAPIUtils {
 			if (!response.ok) {
 				const errorText = await response.text();
 				console.error("❌ Product TSL HTTP error response:", errorText);
-				throw new Error(`API call failed: HTTP ${response.status} - ${errorText}`);
+				throw new Error(
+					`API call failed: HTTP ${response.status} - ${errorText}`,
+				);
 			}
 
 			const result = (await response.json()) as any;
-			console.log("📋 Product TSL API response:", JSON.stringify(result, null, 2));
+			console.log(
+				"📋 Product TSL API response:",
+				JSON.stringify(result, null, 2),
+			);
 
 			if (result.code !== 200) {
 				console.error("❌ Product TSL API returned error code:", {
 					code: result.code,
 					msg: result.msg,
-					fullResponse: result
+					fullResponse: result,
 				});
-				throw new Error(`API call failed: Code ${result.code} - ${result.msg || "Unknown error"}`);
+				throw new Error(
+					`API call failed: Code ${result.code} - ${result.msg || "Unknown error"}`,
+				);
 			}
 
 			return result;
@@ -631,7 +690,7 @@ export class EUOneAPIUtils {
 		return EUOneAPIUtils.safeAPICallWithTokenRefresh(env, async (token) => {
 			console.log("🔐 Using token for device location (length):", token.length);
 
-			// Build query parameters 
+			// Build query parameters
 			const queryParams = new URLSearchParams();
 			queryParams.append("deviceId", String(options.deviceId));
 
@@ -652,19 +711,26 @@ export class EUOneAPIUtils {
 			if (!response.ok) {
 				const errorText = await response.text();
 				console.error("❌ Device location HTTP error response:", errorText);
-				throw new Error(`API call failed: HTTP ${response.status} - ${errorText}`);
+				throw new Error(
+					`API call failed: HTTP ${response.status} - ${errorText}`,
+				);
 			}
 
 			const result = (await response.json()) as any;
-			console.log("📍 Device location API response:", JSON.stringify(result, null, 2));
+			console.log(
+				"📍 Device location API response:",
+				JSON.stringify(result, null, 2),
+			);
 
 			if (result.code !== 200) {
 				console.error("❌ Device location API returned error code:", {
 					code: result.code,
 					msg: result.msg,
-					fullResponse: result
+					fullResponse: result,
 				});
-				throw new Error(`API call failed: Code ${result.code} - ${result.msg || "Unknown error"}`);
+				throw new Error(
+					`API call failed: Code ${result.code} - ${result.msg || "Unknown error"}`,
+				);
 			}
 
 			return result;
@@ -690,7 +756,10 @@ export class EUOneAPIUtils {
 		},
 	): Promise<any> {
 		return EUOneAPIUtils.safeAPICallWithTokenRefresh(env, async (token) => {
-			console.log("🔐 Using token for set device location (length):", token.length);
+			console.log(
+				"🔐 Using token for set device location (length):",
+				token.length,
+			);
 
 			// Build request body with required and optional parameters
 			const requestBody = {
@@ -701,16 +770,25 @@ export class EUOneAPIUtils {
 				coordinateSystem: options.coordinateSystem || "WGS84",
 				...(options.address && { address: options.address }),
 				...(options.detailAddress && { detailAddress: options.detailAddress }),
-				...(options.localPhoto !== undefined && { localPhoto: options.localPhoto }),
+				...(options.localPhoto !== undefined && {
+					localPhoto: options.localPhoto,
+				}),
 				...(options.mountId !== undefined && { mountId: options.mountId }),
-				...(options.locateType !== undefined && { locateType: options.locateType }),
+				...(options.locateType !== undefined && {
+					locateType: options.locateType,
+				}),
 				...(options.adCode && { adCode: options.adCode }),
-				...(options.ggaStatus !== undefined && { ggaStatus: options.ggaStatus }),
+				...(options.ggaStatus !== undefined && {
+					ggaStatus: options.ggaStatus,
+				}),
 				...(options.height !== undefined && { height: options.height }),
 				...(options.speed !== undefined && { speed: options.speed }),
 			};
 
-			console.log("📝 Set device location request body:", JSON.stringify(requestBody, null, 2));
+			console.log(
+				"📝 Set device location request body:",
+				JSON.stringify(requestBody, null, 2),
+			);
 
 			const url = `${env.BASE_URL}/v2/device/detail/locationSave`;
 			console.log("📝 Set device location request URL:", url);
@@ -730,19 +808,26 @@ export class EUOneAPIUtils {
 			if (!response.ok) {
 				const errorText = await response.text();
 				console.error("❌ Set device location HTTP error response:", errorText);
-				throw new Error(`API call failed: HTTP ${response.status} - ${errorText}`);
+				throw new Error(
+					`API call failed: HTTP ${response.status} - ${errorText}`,
+				);
 			}
 
 			const result = (await response.json()) as any;
-			console.log("📍 Set device location API response:", JSON.stringify(result, null, 2));
+			console.log(
+				"📍 Set device location API response:",
+				JSON.stringify(result, null, 2),
+			);
 
 			if (result.code !== 200) {
 				console.error("❌ Set device location API returned error code:", {
 					code: result.code,
 					msg: result.msg,
-					fullResponse: result
+					fullResponse: result,
 				});
-				throw new Error(`API call failed: Code ${result.code} - ${result.msg || "Unknown error"}`);
+				throw new Error(
+					`API call failed: Code ${result.code} - ${result.msg || "Unknown error"}`,
+				);
 			}
 
 			return result;
@@ -758,7 +843,7 @@ export class EUOneAPIUtils {
 		return EUOneAPIUtils.safeAPICallWithTokenRefresh(env, async (token) => {
 			console.log("🔐 Using token for device details (length):", token.length);
 
-			// Build query parameters 
+			// Build query parameters
 			const queryParams = new URLSearchParams();
 			queryParams.append("deviceId", String(options.deviceId));
 
@@ -779,19 +864,26 @@ export class EUOneAPIUtils {
 			if (!response.ok) {
 				const errorText = await response.text();
 				console.error("❌ Device details HTTP error response:", errorText);
-				throw new Error(`API call failed: HTTP ${response.status} - ${errorText}`);
+				throw new Error(
+					`API call failed: HTTP ${response.status} - ${errorText}`,
+				);
 			}
 
 			const result = (await response.json()) as any;
-			console.log("📱 Device details API response:", JSON.stringify(result, null, 2));
+			console.log(
+				"📱 Device details API response:",
+				JSON.stringify(result, null, 2),
+			);
 
 			if (result.code !== 200) {
 				console.error("❌ Device details API returned error code:", {
 					code: result.code,
 					msg: result.msg,
-					fullResponse: result
+					fullResponse: result,
 				});
-				throw new Error(`API call failed: Code ${result.code} - ${result.msg || "Unknown error"}`);
+				throw new Error(
+					`API call failed: Code ${result.code} - ${result.msg || "Unknown error"}`,
+				);
 			}
 
 			return result;
@@ -808,7 +900,7 @@ export class EUOneAPIUtils {
 		return EUOneAPIUtils.safeAPICallWithTokenRefresh(env, async (token) => {
 			console.log("🔐 Using token for product info (length):", token.length);
 
-			// Build query parameters 
+			// Build query parameters
 			const queryParams = new URLSearchParams();
 			queryParams.append("productId", String(options.productId));
 			if (options.vendorId !== undefined) {
@@ -832,19 +924,26 @@ export class EUOneAPIUtils {
 			if (!response.ok) {
 				const errorText = await response.text();
 				console.error("❌ Product info HTTP error response:", errorText);
-				throw new Error(`API call failed: HTTP ${response.status} - ${errorText}`);
+				throw new Error(
+					`API call failed: HTTP ${response.status} - ${errorText}`,
+				);
 			}
 
 			const result = (await response.json()) as any;
-			console.log("📦 Product info API response:", JSON.stringify(result, null, 2));
+			console.log(
+				"📦 Product info API response:",
+				JSON.stringify(result, null, 2),
+			);
 
 			if (result.code !== 200) {
 				console.error("❌ Product info API returned error code:", {
 					code: result.code,
 					msg: result.msg,
-					fullResponse: result
+					fullResponse: result,
 				});
-				throw new Error(`API call failed: Code ${result.code} - ${result.msg || "Unknown error"}`);
+				throw new Error(
+					`API call failed: Code ${result.code} - ${result.msg || "Unknown error"}`,
+				);
 			}
 
 			return result;
@@ -865,12 +964,15 @@ export class EUOneAPIUtils {
 		},
 	): Promise<any> {
 		return EUOneAPIUtils.safeAPICallWithTokenRefresh(env, async (token) => {
-			console.log("🔐 Using token for device properties (length):", token.length);
+			console.log(
+				"🔐 Using token for device properties (length):",
+				token.length,
+			);
 
-			// Build query parameters 
+			// Build query parameters
 			const queryParams = new URLSearchParams();
 			queryParams.append("deviceId", String(options.deviceId));
-			
+
 			// Add optional parameters
 			if (options.showHide !== undefined) {
 				queryParams.append("showHide", String(options.showHide));
@@ -911,19 +1013,26 @@ export class EUOneAPIUtils {
 			if (!response.ok) {
 				const errorText = await response.text();
 				console.error("❌ Device properties HTTP error response:", errorText);
-				throw new Error(`API call failed: HTTP ${response.status} - ${errorText}`);
+				throw new Error(
+					`API call failed: HTTP ${response.status} - ${errorText}`,
+				);
 			}
 
 			const result = (await response.json()) as any;
-			console.log("🔧 Device properties API response:", JSON.stringify(result, null, 2));
+			console.log(
+				"🔧 Device properties API response:",
+				JSON.stringify(result, null, 2),
+			);
 
 			if (result.code !== 200) {
 				console.error("❌ Device properties API returned error code:", {
 					code: result.code,
 					msg: result.msg,
-					fullResponse: result
+					fullResponse: result,
 				});
-				throw new Error(`API call failed: Code ${result.code} - ${result.msg || "Unknown error"}`);
+				throw new Error(
+					`API call failed: Code ${result.code} - ${result.msg || "Unknown error"}`,
+				);
 			}
 
 			return result;
@@ -948,25 +1057,37 @@ export class EUOneAPIUtils {
 
 			// Build query parameters - ensure correct types as per Swagger spec
 			const queryParams = new URLSearchParams();
-			
+
 			// deviceId: integer <int32> (required)
 			queryParams.append("deviceId", String(options.deviceId));
 			console.log("✅ Added deviceId (int32):", options.deviceId);
-			
+
 			// eventType: string - always provide with default "WARN" since it's required by API
 			const eventType = options.eventType || "WARN";
 			queryParams.append("eventType", eventType);
-			console.log("✅ Added eventType (string):", eventType, options.eventType ? "(user provided)" : "(default)");
-			
+			console.log(
+				"✅ Added eventType (string):",
+				eventType,
+				options.eventType ? "(user provided)" : "(default)",
+			);
+
 			// pageNum: integer <int32> - always provide with default 1
 			const pageNum = options.pageNum !== undefined ? options.pageNum : 1;
 			queryParams.append("pageNum", String(pageNum));
-			console.log("✅ Added pageNum (int32):", pageNum, options.pageNum !== undefined ? "(user provided)" : "(default)");
-			
+			console.log(
+				"✅ Added pageNum (int32):",
+				pageNum,
+				options.pageNum !== undefined ? "(user provided)" : "(default)",
+			);
+
 			// pageSize: integer <int32> - always provide with default 10
 			const pageSize = options.pageSize !== undefined ? options.pageSize : 10;
 			queryParams.append("pageSize", String(pageSize));
-			console.log("✅ Added pageSize (int32):", pageSize, options.pageSize !== undefined ? "(user provided)" : "(default)");
+			console.log(
+				"✅ Added pageSize (int32):",
+				pageSize,
+				options.pageSize !== undefined ? "(user provided)" : "(default)",
+			);
 
 			// Additional optional parameters - only add if provided
 			if (options.startTime !== undefined) {
@@ -1000,19 +1121,26 @@ export class EUOneAPIUtils {
 			if (!response.ok) {
 				const errorText = await response.text();
 				console.error("❌ Device events HTTP error response:", errorText);
-				throw new Error(`API call failed: HTTP ${response.status} - ${errorText}`);
+				throw new Error(
+					`API call failed: HTTP ${response.status} - ${errorText}`,
+				);
 			}
 
 			const result = (await response.json()) as any;
-			console.log("📅 Device events API response:", JSON.stringify(result, null, 2));
+			console.log(
+				"📅 Device events API response:",
+				JSON.stringify(result, null, 2),
+			);
 
 			if (result.code !== 200) {
 				console.error("❌ Device events API returned error code:", {
 					code: result.code,
 					msg: result.msg,
-					fullResponse: result
+					fullResponse: result,
 				});
-				throw new Error(`API call failed: Code ${result.code} - ${result.msg || "Unknown error"}`);
+				throw new Error(
+					`API call failed: Code ${result.code} - ${result.msg || "Unknown error"}`,
+				);
 			}
 
 			return result;
@@ -1030,11 +1158,16 @@ export class EUOneAPIUtils {
 	): Promise<any> {
 		return EUOneAPIUtils.safeAPICall(async () => {
 			const token = await EUOneAPIUtils.getAccessToken(env);
-			console.log("🔐 Using token for device data upload (length):", token.length);
+			console.log(
+				"🔐 Using token for device data upload (length):",
+				token.length,
+			);
 
 			// Validate required environment variable
 			if (!env.INTERNAL_API_PATH) {
-				throw new Error("INTERNAL_API_PATH environment variable is required for device data simulation");
+				throw new Error(
+					"INTERNAL_API_PATH environment variable is required for device data simulation",
+				);
 			}
 
 			// Set default timestamp if not provided
@@ -1042,10 +1175,13 @@ export class EUOneAPIUtils {
 				productKey: options.productKey,
 				deviceKey: options.deviceKey,
 				data: options.data, // User-provided property values
-				upTsTime: options.upTsTime || Date.now()
+				upTsTime: options.upTsTime || Date.now(),
 			};
 
-			console.log("📤 Device data upload request body:", JSON.stringify(requestBody, null, 2));
+			console.log(
+				"📤 Device data upload request body:",
+				JSON.stringify(requestBody, null, 2),
+			);
 
 			const url = `${env.BASE_URL}${env.INTERNAL_API_PATH}`;
 			console.log("📝 Device data upload request URL:", url);
@@ -1060,7 +1196,10 @@ export class EUOneAPIUtils {
 			});
 
 			console.log("📡 Device data upload response status:", response.status);
-			console.log("📡 Device data upload response headers:", Object.fromEntries(response.headers.entries()));
+			console.log(
+				"📡 Device data upload response headers:",
+				Object.fromEntries(response.headers.entries()),
+			);
 
 			if (!response.ok) {
 				const errorText = await response.text();
@@ -1069,20 +1208,28 @@ export class EUOneAPIUtils {
 			}
 
 			const result = (await response.json()) as any;
-			console.log("📤 Device data upload API response:", JSON.stringify(result, null, 2));
-			
+			console.log(
+				"📤 Device data upload API response:",
+				JSON.stringify(result, null, 2),
+			);
+
 			// Handle potential session timeout and retry
 			if (result.code && result.code !== 200) {
 				if (result.msg && result.msg.includes("Session timed out")) {
-					console.log("🔄 Session timeout detected, forcing token refresh and retrying...");
+					console.log(
+						"🔄 Session timeout detected, forcing token refresh and retrying...",
+					);
 					// Clear the cached token to force refresh
 					accessToken = null;
 					tokenExpiry = 0;
-					
+
 					// Get new token
 					const newToken = await EUOneAPIUtils.getAccessToken(env);
-					console.log("🔐 Retrying device data upload with new token (length):", newToken.length);
-					
+					console.log(
+						"🔐 Retrying device data upload with new token (length):",
+						newToken.length,
+					);
+
 					// Retry the request with new token
 					const retryResponse = await fetch(url, {
 						method: "POST",
@@ -1095,20 +1242,27 @@ export class EUOneAPIUtils {
 
 					if (!retryResponse.ok) {
 						const retryErrorText = await retryResponse.text();
-						throw new Error(`Retry API call failed: ${retryResponse.status} - ${retryErrorText}`);
+						throw new Error(
+							`Retry API call failed: ${retryResponse.status} - ${retryErrorText}`,
+						);
 					}
 
 					const retryResult = (await retryResponse.json()) as any;
-					console.log("🔄 Device data upload retry response:", JSON.stringify(retryResult, null, 2));
-					
+					console.log(
+						"🔄 Device data upload retry response:",
+						JSON.stringify(retryResult, null, 2),
+					);
+
 					if (retryResult.code && retryResult.code !== 200) {
-						throw new Error(`Retry API call failed: ${retryResult.msg || 'Unknown error'}`);
+						throw new Error(
+							`Retry API call failed: ${retryResult.msg || "Unknown error"}`,
+						);
 					}
-					
+
 					return retryResult;
 				}
-				
-				throw new Error(`API call failed: ${result.msg || 'Unknown error'}`);
+
+				throw new Error(`API call failed: ${result.msg || "Unknown error"}`);
 			}
 
 			// For successful response (code 200 or no code field)
@@ -1128,7 +1282,10 @@ export class EUOneAPIUtils {
 		},
 	): Promise<any> {
 		return EUOneAPIUtils.safeAPICallWithTokenRefresh(env, async (token) => {
-			console.log("🔐 Using token for device control write (length):", token.length);
+			console.log(
+				"🔐 Using token for device control write (length):",
+				token.length,
+			);
 
 			// Build request body with required and optional parameters
 			const requestBody = {
@@ -1136,11 +1293,16 @@ export class EUOneAPIUtils {
 				...(options.tslPropMap && { tslPropMap: options.tslPropMap }),
 				...(options.tslServiceMap && { tslServiceMap: options.tslServiceMap }),
 				...(options.batchSendType && { batchSendType: options.batchSendType }),
-				...(options.cacheTime !== undefined && { cacheTime: options.cacheTime }),
+				...(options.cacheTime !== undefined && {
+					cacheTime: options.cacheTime,
+				}),
 				...(options.isCache !== undefined && { isCache: options.isCache }),
 			};
 
-			console.log("📤 Device control write request body:", JSON.stringify(requestBody, null, 2));
+			console.log(
+				"📤 Device control write request body:",
+				JSON.stringify(requestBody, null, 2),
+			);
 
 			const url = `${env.BASE_URL}/v2/device/detail/write/tsl/data`;
 			console.log("📝 Device control write request URL:", url);
@@ -1155,23 +1317,110 @@ export class EUOneAPIUtils {
 			});
 
 			console.log("📡 Device control write response status:", response.status);
-			console.log("📡 Device control write response headers:", Object.fromEntries(response.headers.entries()));
+			console.log(
+				"📡 Device control write response headers:",
+				Object.fromEntries(response.headers.entries()),
+			);
 
 			if (!response.ok) {
 				const errorText = await response.text();
-				console.error("❌ Device control write HTTP error response:", errorText);
+				console.error(
+					"❌ Device control write HTTP error response:",
+					errorText,
+				);
 				throw new Error(`API call failed: ${response.status} - ${errorText}`);
 			}
 
 			const result = (await response.json()) as any;
-			console.log("📤 Device control write API response:", JSON.stringify(result, null, 2));
+			console.log(
+				"📤 Device control write API response:",
+				JSON.stringify(result, null, 2),
+			);
 
 			if (result.code && result.code !== 200) {
-				throw new Error(`API call failed: ${result.msg || 'Unknown error'}`);
+				throw new Error(`API call failed: ${result.msg || "Unknown error"}`);
 			}
 
 			return result;
 		});
 	}
 
+	static async queryDeviceData(
+		env: EUOneEnvironment,
+		options: {
+			deviceKey: string;
+			productKey: string;
+			startTime: number;
+			endTime: number;
+			pageNum?: number;
+			pageSize?: number;
+			timeZoneOffset?: string;
+		},
+	): Promise<any> {
+		return EUOneAPIUtils.safeAPICallWithTokenRefresh(env, async (token) => {
+			console.log(
+				"🔐 Using token for query device data (length):",
+				token.length,
+			);
+
+			// Build query parameters for POST request
+			const queryParams = new URLSearchParams();
+			queryParams.append("deviceKey", options.deviceKey);
+			queryParams.append("productKey", options.productKey);
+			queryParams.append("startTime", String(options.startTime));
+			queryParams.append("endTime", String(options.endTime));
+			queryParams.append("pageNum", String(options.pageNum || 1));
+			queryParams.append("pageSize", String(options.pageSize || 10));
+
+			if (options.timeZoneOffset) {
+				queryParams.append("timeZoneOffset", options.timeZoneOffset);
+			}
+
+			console.log(
+				"📝 Query device data request params:",
+				queryParams.toString(),
+			);
+
+			const url = `${env.BASE_URL}/v2/device/history/data/list?${queryParams.toString()}`;
+			console.log("📝 Query device data request URL:", url);
+
+			const response = await fetch(url, {
+				method: "POST",
+				headers: {
+					Authorization: token, // Direct token, no "Bearer " prefix
+					"Accept-Language": "en-US",
+					"Content-Type": "application/json",
+				},
+			});
+
+			console.log("📡 Query device data response status:", response.status);
+
+			if (!response.ok) {
+				const errorText = await response.text();
+				console.error("❌ Query device data HTTP error response:", errorText);
+				throw new Error(
+					`API call failed: HTTP ${response.status} - ${errorText}`,
+				);
+			}
+
+			const result = (await response.json()) as any;
+			console.log(
+				"📊 Query device data API response:",
+				JSON.stringify(result, null, 2),
+			);
+
+			if (result.code !== 200) {
+				console.error("❌ Query device data API returned error code:", {
+					code: result.code,
+					msg: result.msg,
+					fullResponse: result,
+				});
+				throw new Error(
+					`API call failed: Code ${result.code} - ${result.msg || "Unknown error"}`,
+				);
+			}
+
+			return result;
+		});
+	}
 }
