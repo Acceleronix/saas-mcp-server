@@ -3017,8 +3017,8 @@ export class VirtualDataMCP extends McpAgent {
 						productKey: productKey.trim(),
 						startTime,
 						endTime,
-						pageNum,
-						pageSize,
+						pageNum: pageNum || 1,
+						pageSize: pageSize || 10,
 						timeZoneOffset,
 					});
 
