@@ -1385,10 +1385,11 @@ export class EUOneAPIUtils {
 			console.log("📝 Query device data request URL:", url);
 
 			const response = await fetch(url, {
-				method: "POST",
+				method: "GET",
 				headers: {
 					Authorization: token, // Direct token, no "Bearer " prefix
 					"Accept-Language": "en-US",
+					"Content-Type": "application/json",
 				},
 			});
 
