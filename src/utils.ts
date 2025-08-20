@@ -1389,7 +1389,6 @@ export class EUOneAPIUtils {
 				headers: {
 					Authorization: token, // Direct token, no "Bearer " prefix
 					"Accept-Language": "en-US",
-					"Content-Type": "application/json",
 				},
 			});
 
