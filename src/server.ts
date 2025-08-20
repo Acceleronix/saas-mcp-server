@@ -2914,12 +2914,12 @@ export class VirtualDataMCP extends McpAgent {
 				startTime: z
 					.number()
 					.describe(
-						"Start time timestamp in milliseconds (required, e.g., 1755619200000)",
+						"Start time timestamp in milliseconds (required, e.g., 1755619200000 for 2025-08-19)",
 					),
 				endTime: z
 					.number()
 					.describe(
-						"End time timestamp in milliseconds (required, e.g., 1755705599999)",
+						"End time timestamp in milliseconds (required, e.g., 1755705599999 for 2025-08-20)",
 					),
 				pageNum: z
 					.number()
